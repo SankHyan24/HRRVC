@@ -1,0 +1,7 @@
+# Don't track content of these folders
+
+.vs/
+build/*
+
+.DS_Store
+.idea

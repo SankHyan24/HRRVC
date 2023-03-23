@@ -1,0 +1,19 @@
+Instructions for building:
+
+  * apt-get install libsdl2-dev
+
+  * git clone https://github.com/knightcrawler25/GLSL-PathTracer.git
+
+  * OpenImageDenoise: Copy linux64 libraries from https://github.com/OpenImageDenoise/oidn/releases/tag/v1.2.4 to thirdparty/oidn/lib folder
+
+  * mkdir build
+
+  * cd build
+
+  * cmake ..
+
+  * make
+
+  * To run the program: ./PathTracer
+
+  * Additional samples can be downloaded from: https://drive.google.com/file/d/1UFMMoVb5uB7WIvCeHOfQ2dCQSxNMXluB/view

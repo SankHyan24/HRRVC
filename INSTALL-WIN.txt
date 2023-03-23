@@ -1,0 +1,22 @@
+Instructions for building:
+
+  * Start up cmake-gui from the Start Menu.
+
+  * Select the main directory where CMakeLists.txt is as the source file location.
+
+  * Select the "build" directory as the location to build the binaries.
+
+  * Press "Configure" button and select the version of Visual Studio you wish to
+    use. (e.g. look for "Visual Studio xx 20xx Win64").  Leave all other options on
+    their default.  Press "OK".
+
+  * Open the .sln solution file in the "build" directory.
+
+  * Change to "Release" mode and Press "Build Solution" from the IDE.
+
+  * Right click on "PathTracer" program targets in the solution explorer and
+    select "Set as start up project".
+
+  * Run the program. 
+
+  * Additional samples can be downloaded from: https://drive.google.com/file/d/1UFMMoVb5uB7WIvCeHOfQ2dCQSxNMXluB/view
