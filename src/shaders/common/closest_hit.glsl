@@ -119,6 +119,13 @@ if(state.depth > 0)
         {
             for (int i = 0; i < rightIndex; i++) // Loop through tris
             {
+                //这段代码很可能是光线跟踪算法的一部分。它似乎循环遍历三角形，并使用射线的顶点和方向确定射线是否与当前正在测试的三角形相交。
+                //如果射线与三角形相交，则代码更新
+                //“t”（相交点距离射线起点的距离）、
+                //“triID”（相交三角形的索引）、
+                //“state。matID”（相交对象的材质 ID）、
+                //“bary”（交点的重心坐标）、
+                //“vert0”、“vert1”和“vert2”（三角形的三个顶点）和“transform”（相交对象的变换矩阵）的值。
                 ivec3 vertIndices = ivec3(texelFetch(vertexIndicesTex, leftIndex + i).xyz);
 
                 vec4 v0 = texelFetch(verticesTex, vertIndices.x);

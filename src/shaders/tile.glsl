@@ -50,14 +50,14 @@ void main(void)
     float r1 = 2.0 * rand();
     float r2 = 2.0 * rand();
 
-    vec2 jitter;
+    vec2 jitter;  // 抖动
     jitter.x = r1 < 1.0 ? sqrt(r1) - 1.0 : 1.0 - sqrt(2.0 - r1);
     jitter.y = r2 < 1.0 ? sqrt(r2) - 1.0 : 1.0 - sqrt(2.0 - r2);
 
-    jitter /= (resolution * 0.5);
+    jitter /= (resolution * 0.5);// 把抖动范围限制在0~1之间
     vec2 d = (coordsTile * 2.0 - 1.0) + jitter;
 
-    float scale = tan(camera.fov * 0.5);
+    float scale = tan(camera.fov * 0.5);// 角度转比率
     d.y *= resolution.y / resolution.x * scale;
     d.x *= scale;
     vec3 rayDir = normalize(d.x * camera.right + d.y * camera.up + camera.forward);

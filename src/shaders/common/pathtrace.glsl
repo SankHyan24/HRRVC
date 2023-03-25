@@ -300,6 +300,7 @@ vec4 PathTrace(Ray r)
 
     for (state.depth = 0;; state.depth++)
     {
+        // 判断是否命中，并更新state和lightSample
         bool hit = ClosestHit(r, state, lightSample);
 
         if (!hit)
