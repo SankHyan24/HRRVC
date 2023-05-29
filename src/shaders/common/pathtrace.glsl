@@ -115,24 +115,42 @@ void GetMaterial(inout State state, in Ray r)
 }
 
 // TODO: Recheck all of this
+/*
+    此代码定义了一个名为“EvalTransmittance”的函数，该函数将光线作为输入并返回表示光线通过介质的透射率
+    的 vec3 值。 该函数使用一个循环来跟踪穿过介质的光线并计算每一步的透射率。
+*/
 #if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
 vec3 EvalTransmittance(Ray r)
 {
+    /*
+        该函数首先初始化了一些变量，包括一个LightSampleRec对象，一个State对象，
+        以及一个透射率值的vec3（初始化为(1.0, 1.0, 1.0)表示没有衰减）。
+    */
     LightSampleRec lightSample;
     State state;
     vec3 transmittance = vec3(1.0);
-
+    /*
+        然后该函数进入一个循环，该循环将一直持续到光线达到其最大深度或与发射器（即光源）相交为止。
+    */
     for (int depth = 0; depth < maxDepth; depth++)
     {
         bool hit = ClosestHit(r, state, lightSample);
 
         // If no hit (environment map) or if ray hit a light source then return transmittance
+        /*
+            如果光线没有击中任何东西或没有击中发射器，则该函数会跳出循环并返回当前的透射率值。
+        */
         if (!hit || state.isEmitter)
             break;
 
         // TODO: Get only parameters that are needed to calculate transmittance
-        GetMaterial(state, r);
 
+        GetMaterial(state, r);
+        /*
+            如果光线击中物体，该函数会检查材质是否启用了 alpha 测试或折射。 如果材质具有 alpha
+            测试并且光线的不透明度低于截止值，或者如果材质启用了混合并且随机数大于不透明度值，则
+            函数返回 (0.0, 0.0, 0.0) 的 vec3 以指示 射线被阻挡。
+        */
         bool alphatest = (state.mat.alphaMode == ALPHA_MODE_MASK && state.mat.opacity < state.mat.alphaCutoff) || (state.mat.alphaMode == ALPHA_MODE_BLEND && rand() > state.mat.opacity);
         bool refractive = (1.0 - state.mat.metallic) * state.mat.specTrans > 0.0;
 
@@ -141,6 +159,11 @@ vec3 EvalTransmittance(Ray r)
             return vec3(0.0);
 
         // Evaluate transmittance
+        /*
+            如果击中未被阻挡，该函数将评估介质在击中点处的透射率。 如果光线方向与表面法线的点积为正
+            （表示光线从介质中射出），并且材料具有非零介质密度，函数使用比尔-朗伯定律计算透射率，其中
+            透射率降低的量与介质的密度和穿过它的距离成正比。
+        */
         if (dot(r.direction, state.normal) > 0 && state.mat.medium.type != MEDIUM_NONE)
         {
             vec3 color = state.mat.medium.type == MEDIUM_ABSORB ? vec3(1.0) - state.mat.medium.color : vec3(1.0);
@@ -148,6 +171,9 @@ vec3 EvalTransmittance(Ray r)
         }
 
         // Move ray origin to hit point
+        /*
+            最后，该函数将光线的原点更新为命中点，并继续通过介质追踪光线。
+        */
         r.origin = state.fhp + r.direction * EPS;
     }
 
@@ -155,8 +181,16 @@ vec3 EvalTransmittance(Ray r)
 }
 #endif
 
+
+/*
+    此代码在给定光线和状态的情况下计算对场景中某个点的直接照明贡献。
+*/
 vec3 DirectLight(in Ray r, in State state, bool isSurface)
 {
+    /*
+    首先将直接照明贡献和间接照明贡献初始化为零。 然后，它通过将光线的命中点添加到表面法线
+    乘以一个小的 epsilon 值来计算散射位置。
+    */
     vec3 Ld = vec3(0.0);
     vec3 Li = vec3(0.0);
     vec3 scatterPos = state.fhp + state.normal * EPS;
@@ -166,6 +200,11 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
     // Environment Light
 #ifdef OPT_ENVMAP
 #ifndef OPT_UNIFORM_LIGHT
+    /*
+        接下来，它通过调用函数 SampleEnvMap 对间接照明的环境贴图进行采样，并将结果存储在 Li 中。 
+        它还计算光的方向和采样方向的概率密度函数。 如果场景包含体积，它会评估介质的透射率并使用 
+        Henyey-Greenstein 相函数计算散射相函数。 然后计算 MIS 权重并添加对直接照明的贡献。 
+    */
     {
         vec3 color;
         vec4 dirPdf = SampleEnvMap(Li);
@@ -194,6 +233,9 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
                 Ld += misWeight * Li * scatterSample.f * envMapIntensity / lightPdf;
         }
 #else
+    /*
+        如果场景中没有体积，它会使用简单的二进制命中测试来检查阴影并添加对直接照明的贡献。
+    */
         // If there are no volumes in the scene then use a simple binary hit test
         bool inShadow = AnyHit(shadowRay, INF - EPS);
 
@@ -213,9 +255,18 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
 #endif
 #endif
 
+/*
+    检查是否定义了 OPT_LIGHTS 标志，该标志指示场景中是否存在灯。
+*/
     // Analytic Lights
 #ifdef OPT_LIGHTS
     {
+        /*
+            从场景中的一组可用灯光中随机采样一个灯光。 它从纹理中获取光数据并创建一个光对象。 
+            然后，它使用 SampleOneLight 函数对光进行采样，并将发射存储在 Li 中。 它通过
+            计算采样方向和表面法线的点积来检查光线是单侧还是双侧。 如果点积为负，则意味着光
+            是单面的，我们需要确保不包括光背面的贡献。
+        */
         LightSampleRec lightSample;
         Light light;
 
@@ -240,6 +291,12 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
         {
             Ray shadowRay = Ray(scatterPos, lightSample.direction);
 
+            /*
+                如果场景包含体积，它会评估介质的透射率并使用 Henyey-Greenstein 相函数计算散射相函数。 
+                然后计算 MIS 权重并添加对直接照明的贡献。 如果场景中没有体积，它会使用简单的二进制命中
+                测试来检查阴影并添加对直接照明的贡献。总的来说，此代码用于计算分析灯的直接照明贡献，并考
+                虑了体积和单面灯的存在。
+            */
             // If there are volumes in the scene then evaluate transmittance rather than a binary anyhit test
 #if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
             Li *= EvalTransmittance(shadowRay);
@@ -282,8 +339,18 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
     return Ld;
 }
 
+
+/*
+    这是路径追踪的主要功能，它通过追踪光线和计算每个像素的辐射值来模拟场景中光
+    的行为。 它接受一个 Ray 对象作为输入并返回一个 vec4 对象，表示该射线的最
+    终辐射值。
+*/
 vec4 PathTrace(Ray r)
 {
+    /*
+        该函数初始化 radiance、throughput、state、lightSample 和 scatterSample 
+        的变量。 它还将 alpha 值设置为 1.0，稍后将用于介质跟踪。
+    */
     vec3 radiance = vec3(0.0);
     vec3 throughput = vec3(1.0);
     State state;
@@ -297,18 +364,24 @@ vec4 PathTrace(Ray r)
     bool inMedium = false;
     bool mediumSampled = false;
     bool surfaceScatter = false;
-
+    /*
+        for 循环一直持续到达到最大深度或直到射线没有击中任何东西。 
+    */
     for (state.depth = 0;; state.depth++)
     {
         // 判断是否命中，并更新state和lightSample
+        // 它首先通过调用 ClosestHit 函数检查光线是否命中任何东西，如果命中发生，该函数会更新 state 和 lightSample 变量。 
         bool hit = ClosestHit(r, state, lightSample);
-
+        // 如果没有命中，该函数将检查当前深度是否为 0，如果定义了 OPT_BACKGROUND 或 
+        //OPT_TRANSPARENT_BACKGROUND，则将 alpha 值设置为 0.0。 
         if (!hit)
         {
 #if defined(OPT_BACKGROUND) || defined(OPT_TRANSPARENT_BACKGROUND)
             if (state.depth == 0)
                 alpha = 0.0;
 #endif
+        //如果定义了 OPT_HIDE_EMITTERS 并且深度大于 0，则该函数会跳过从发光对象收集辐射。 
+        // 否则，它会根据定义的选项从环境贴图或均匀光中收集辐射。
 
 #ifdef OPT_HIDE_EMITTERS
             if(state.depth > 0)
@@ -322,7 +395,6 @@ vec4 PathTrace(Ray r)
 
                 float misWeight = 1.0;
 
-                // Gather radiance from envmap and use scatterSample.pdf from previous bounce for MIS
                 if (state.depth > 0)
                     misWeight = PowerHeuristic(scatterSample.pdf, envMapColPdf.w);
 
@@ -338,7 +410,10 @@ vec4 PathTrace(Ray r)
              }
              break;
         }
-
+        /*
+            如果有命中，该函数通过调用 GetMaterial 函数获取命中对象的材料属性。 
+            如果定义了 OPT_LIGHTS，它会从发光物体和灯光收集辐射。
+        */
         GetMaterial(state, r);
 
         // Gather radiance from emissive objects. Emission from meshes is not importance sampled
@@ -353,7 +428,11 @@ vec4 PathTrace(Ray r)
 
             if (state.depth > 0)
                 misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
-
+        /*
+            如果定义了 OPT_LIGHTS 并且当前命中对象是发射器，则该函数收集来自光
+            源的辐射度，其中包含来自上一次反弹的 scatterSample.pdf 和来自当前
+            命中的 lightSample.pdf然后该函数跳出循环。
+        */
 #if defined(OPT_MEDIUM) && !defined(OPT_VOL_MIS)
             if(!surfaceScatter)
                 misWeight = 1.0f;
@@ -368,6 +447,12 @@ vec4 PathTrace(Ray r)
         if(state.depth == maxDepth)
             break;
 
+
+/*
+    如果定义了 OPT_MEDIUM，该函数会初始化媒体跟踪的变量。 如果介质类型是 MEDIUM_SCATTER，函数在介质中采
+    样一个距离，更新吞吐量，将光线原点移动到散射位置，评估透射率，根据相位函数选择一
+    个新方向，并更新 scatterSample.pdf 和 r.方向变量。
+*/
 #ifdef OPT_MEDIUM
 
         mediumSampled = false;
@@ -375,17 +460,25 @@ vec4 PathTrace(Ray r)
 
         // Handle absorption/emission/scattering from medium
         // TODO: Handle light sources placed inside medium
+        /*如果光线当前在介质内部，则该函数处理介质的吸收、发射和散射*/
         if(inMedium)
         {
+            /* 如果介质类型为 MEDIUM_ABSORB，则该函数通过介质的吸收系数降低吞吐量 */
             if(state.medium.type == MEDIUM_ABSORB)
             {
                 throughput *= exp(-(1.0 - state.medium.color) * state.hitDist * state.medium.density);
             }
+            /*如果介质类型为 MEDIUM_EMISSIVE，则该函数会将介质的辐射度添加到总辐射度中。*/
             else if(state.medium.type == MEDIUM_EMISSIVE)
             {
                 radiance += state.medium.color * state.hitDist * state.medium.density * throughput;
             }
-            else
+            /*
+                如果介质类型是 MEDIUM_SCATTER，函数在介质中采样一个距离，更新吞吐量，
+                将光线原点移动到散射位置，评估透射率，根据相位函数选择一个新方向，并更新 
+                scatterSample.pdf 和 r .方向变量。
+            */
+            else // MEDIUM_SCATTER 
             {
                 // Sample a distance in the medium
                 float scatterDist = min(-log(rand()) / state.medium.density, state.hitDist);
@@ -409,13 +502,13 @@ vec4 PathTrace(Ray r)
                 }
             }
         }
-
+        /*如果未对介质进行采样，该函数将检查是否定义了 OPT_ALPHA_TEST 以及是否满足 alpha 截止阈值。*/
         // If medium was not sampled then proceed with surface BSDF evaluation
         if (!mediumSampled)
         {
 #endif
 #ifdef OPT_ALPHA_TEST
-
+            /*如果是这样，该函数将更新 scatterSample.L 并减小深度。*/
             // Ignore intersection and continue ray based on alpha test
             if ((state.mat.alphaMode == ALPHA_MODE_MASK && state.mat.opacity < state.mat.alphaCutoff) ||
                 (state.mat.alphaMode == ALPHA_MODE_BLEND && rand() > state.mat.opacity))
@@ -423,6 +516,8 @@ vec4 PathTrace(Ray r)
                 scatterSample.L = r.direction;
                 state.depth--;
             }
+            /*否则，该函数将 surfaceScatter 变量设置为 true，从直接照明收集辐射，
+            对 BSDF 进行颜色和出射方向采样，并更新吞吐量。*/
             else
 #endif
             {
@@ -442,7 +537,9 @@ vec4 PathTrace(Ray r)
             // Move ray origin to hit point and set direction for next bounce
             r.direction = scatterSample.L;
             r.origin = state.fhp + r.direction * EPS;
-
+/*
+    如果定义了 OPT_MEDIUM，该函数还会检查光线是否进入包含介质的表面并更新 inMedium 和 state.medium 变量。
+*/
 #ifdef OPT_MEDIUM
 
             // Note: Nesting of volumes isn't supported due to lack of a volume stack for performance reasons
@@ -459,7 +556,9 @@ vec4 PathTrace(Ray r)
                 inMedium = false;
         }
 #endif
-
+/*
+    如果定义了 OPT_RR，该函数将实现俄罗斯轮盘赌以随机终止超过一定深度的光线。
+*/
 #ifdef OPT_RR
         // Russian roulette
         if (state.depth >= OPT_RR_DEPTH)
@@ -472,6 +571,6 @@ vec4 PathTrace(Ray r)
 #endif
 
     }
-
+/*该函数返回一个包含最终辐射值和 alpha 值的 vec4 对象。*/
     return vec4(radiance, alpha);
 }
