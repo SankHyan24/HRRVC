@@ -155,6 +155,7 @@ vec3 CosineSampleHemisphere(float r1, float r2)
     return dir;
 }
 
+// sc: 均匀采样出一个半球上的点
 vec3 UniformSampleHemisphere(float r1, float r2)
 {
     float r = sqrt(max(0.0, 1.0 - r1 * r1));

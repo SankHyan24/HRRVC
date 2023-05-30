@@ -22,6 +22,8 @@
  * SOFTWARE.
  */
 
+// sc: get the material from the state.matID to state.mat
+// sc: the Ray r only used to determine the direction of the state.normal
 void GetMaterial(inout State state, in Ray r)
 {
     int index = state.matID * 8;
@@ -159,13 +161,14 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
 {
     vec3 Ld = vec3(0.0);
     vec3 Li = vec3(0.0);
+    // fhp: First Hit Point, EPS: 误差因子。这个值的作用是在原始交点位置上加一个微小的位移，以此避免遇到数值计算上的精度问题
     vec3 scatterPos = state.fhp + state.normal * EPS;
 
     ScatterSampleRec scatterSample;
 
     // Environment Light
 #ifdef OPT_ENVMAP
-#ifndef OPT_UNIFORM_LIGHT
+    #ifndef OPT_UNIFORM_LIGHT
     {
         vec3 color;
         vec4 dirPdf = SampleEnvMap(Li);
@@ -174,7 +177,7 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
 
         Ray shadowRay = Ray(scatterPos, lightDir);
 
-#if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
+        #if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
         // If there are volumes in the scene then evaluate transmittance rather than a binary anyhit test
         Li *= EvalTransmittance(shadowRay);
 
@@ -193,7 +196,7 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
             if (misWeight > 0.0)
                 Ld += misWeight * Li * scatterSample.f * envMapIntensity / lightPdf;
         }
-#else
+        #else
         // If there are no volumes in the scene then use a simple binary hit test
         bool inShadow = AnyHit(shadowRay, INF - EPS);
 
@@ -208,12 +211,13 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
                     Ld += misWeight * Li * scatterSample.f * envMapIntensity / lightPdf;
             }
         }
-#endif
+        #endif
     }
-#endif
+    #endif
 #endif
 
     // Analytic Lights
+    // sc: Analytic lights 就是说这个光源的光照能够解析出来不需要进行采样
 #ifdef OPT_LIGHTS
     {
         LightSampleRec lightSample;
@@ -233,7 +237,7 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
         float type    = params.z; // 0->Rect, 1->Sphere, 2->Distant
 
         light = Light(position, emission, u, v, radius, area, type);
-        SampleOneLight(light, scatterPos, lightSample);
+        SampleOneLight(light, scatterPos, lightSample);// sc: smaple the light and get the lightSample
         Li = lightSample.emission;
 
         if (dot(lightSample.direction, lightSample.normal) < 0.0) // Required for quad lights with single sided emission
@@ -241,7 +245,7 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
             Ray shadowRay = Ray(scatterPos, lightSample.direction);
 
             // If there are volumes in the scene then evaluate transmittance rather than a binary anyhit test
-#if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
+    #if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
             Li *= EvalTransmittance(shadowRay);
 
             if (isSurface)
@@ -259,14 +263,17 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
 
             if (scatterSample.pdf > 0.0)
                 Ld += misWeight * scatterSample.f * Li / lightSample.pdf;
-#else
+    #else
             // If there are no volumes in the scene then use a simple binary hit test
+            // sc: seems like the closest hit
             bool inShadow = AnyHit(shadowRay, lightSample.dist - EPS);
 
             if (!inShadow)
             {
+                
                 scatterSample.f = DisneyEval(state, -r.direction, state.ffnormal, lightSample.direction, scatterSample.pdf);
-
+                
+                // 这里针对平行光，平行光不需要mis
                 float misWeight = 1.0;
                 if(light.area > 0.0) // No MIS for distant light
                     misWeight = PowerHeuristic(lightSample.pdf, scatterSample.pdf);
@@ -274,7 +281,7 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
                 if (scatterSample.pdf > 0.0)
                     Ld += misWeight * Li * scatterSample.f / lightSample.pdf;
             }
-#endif
+    #endif
         }
     }
 #endif
@@ -303,49 +310,54 @@ vec4 PathTrace(Ray r)
         // 判断是否命中，并更新state和lightSample
         bool hit = ClosestHit(r, state, lightSample);
 
-        if (!hit)
+        if (!hit)// sc: if not hit, only need to solve the uniform light and envmap
         {
-#if defined(OPT_BACKGROUND) || defined(OPT_TRANSPARENT_BACKGROUND)
+// sc:if add transparent background
+#if defined(OPT_BACKGROUND) || defined(OPT_TRANSPARENT_BACKGROUND) 
             if (state.depth == 0)
                 alpha = 0.0;
 #endif
 
+
+// sc: this part is mainly about the uniform light and envmap
 #ifdef OPT_HIDE_EMITTERS
             if(state.depth > 0)
 #endif
             {
 #ifdef OPT_UNIFORM_LIGHT
-                radiance += uniformLightCol * throughput;
+                radiance += uniformLightCol * throughput; // sc: the uniform light part
 #else
-#ifdef OPT_ENVMAP
+    #ifdef OPT_ENVMAP
                 vec4 envMapColPdf = EvalEnvMap(r);
 
                 float misWeight = 1.0;
 
                 // Gather radiance from envmap and use scatterSample.pdf from previous bounce for MIS
                 if (state.depth > 0)
-                    misWeight = PowerHeuristic(scatterSample.pdf, envMapColPdf.w);
+                    misWeight = PowerHeuristic(scatterSample.pdf, envMapColPdf.w);// y=t^2/(t^2+b^2)
 
-#if defined(OPT_MEDIUM) && !defined(OPT_VOL_MIS)
+        #if defined(OPT_MEDIUM) && !defined(OPT_VOL_MIS)
+                // sc: if not scatter, it means that the light is emitter, then misWeight = 1.0. 
                 if(!surfaceScatter)
                     misWeight = 1.0f;
-#endif
+        #endif
 
-                if(misWeight > 0)
+                if(misWeight > 0)// sc: why there use this condition? 
                     radiance += misWeight * envMapColPdf.rgb * throughput * envMapIntensity;
-#endif
+    #endif
 #endif
              }
-             break;
+             break;// sc: if not hit, then break
         }
 
+        // sc: if hit
         GetMaterial(state, r);
 
         // Gather radiance from emissive objects. Emission from meshes is not importance sampled
-        radiance += state.mat.emission * throughput;
+        radiance += state.mat.emission * throughput;// sc: if the mesh emissive, then add the emission to the radiance
         
 #ifdef OPT_LIGHTS
-
+        // sc: this is the hitted light part
         // Gather radiance from light and use scatterSample.pdf from previous bounce for MIS
         if (state.isEmitter)
         {
@@ -354,39 +366,44 @@ vec4 PathTrace(Ray r)
             if (state.depth > 0)
                 misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
 
-#if defined(OPT_MEDIUM) && !defined(OPT_VOL_MIS)
+    #if defined(OPT_MEDIUM) && !defined(OPT_VOL_MIS)
             if(!surfaceScatter)
                 misWeight = 1.0f;
-#endif
+    #endif
 
             radiance += misWeight * lightSample.emission * throughput;
 
-            break;
+            break;// sc:get to the light, then break
         }
 #endif
         // Stop tracing ray if maximum depth was reached
         if(state.depth == maxDepth)
-            break;
+            break;// sc: if the depth is too large, then break
 
+// sc: this part is mainly about the medium, such as smoke or fog
 #ifdef OPT_MEDIUM
 
         mediumSampled = false;
         surfaceScatter = false;
 
+        // sc:simulating the behavior of light as it passes through a medium (such as smoke or fog) and interacts with objects within that medium.
         // Handle absorption/emission/scattering from medium
         // TODO: Handle light sources placed inside medium
-        if(inMedium)
+        if(inMedium)// sc:the first time, inMedium is false.
         {
             if(state.medium.type == MEDIUM_ABSORB)
             {
+                // sc: implement absorb by multiply the throughput
                 throughput *= exp(-(1.0 - state.medium.color) * state.hitDist * state.medium.density);
             }
             else if(state.medium.type == MEDIUM_EMISSIVE)
             {
+                // sc: implement emissive by add the radiance
                 radiance += state.medium.color * state.hitDist * state.medium.density * throughput;
             }
             else
             {
+                // sc: solve the scattering here
                 // Sample a distance in the medium
                 float scatterDist = min(-log(rand()) / state.medium.density, state.hitDist);
                 mediumSampled = scatterDist < state.hitDist;
@@ -399,6 +416,7 @@ vec4 PathTrace(Ray r)
                     r.origin += r.direction * scatterDist;
                     state.fhp = r.origin;
 
+                    // sc:这里是对于散射的处理，用的是非表面的直接光照方式
                     // Transmittance Evaluation
                     radiance += DirectLight(r, state, false) * throughput;
 
@@ -414,6 +432,7 @@ vec4 PathTrace(Ray r)
         if (!mediumSampled)
         {
 #endif
+// sc: 快速剔除不可见的像素，提高实时渲染的效率
 #ifdef OPT_ALPHA_TEST
 
             // Ignore intersection and continue ray based on alpha test
