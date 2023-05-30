@@ -240,9 +240,19 @@ vec3 DisneySample(State state, vec3 V, vec3 N, out vec3 L, out float pdf)
 
     return DisneyEval(state, V, N, L, pdf);
 }
-
+/*
+    此代码是 Disney BRDF 模型的实现，该模型是用于在计算机图形中渲染材质的基于物理的模型。 
+    给定状态（其中包括有关正在渲染的材质的信息）、视图向量 (V)、法线向量 (N) 和光向量 (L)，
+    该函数计算材质在渲染点的颜色。
+*/
 vec3 DisneyEval(State state, vec3 V, vec3 N, vec3 L, out float pdf)
 {
+    /*
+        该函数首先将概率密度函数 (pdf) 和颜色向量 (f) 初始化为零。 然后它根据法向量 N 计
+        算切线和副切线向量，以简化操作。 然后使用切线、双切线和法线向量将视图和光向量从世界
+        空间转换到局部着色空间。
+    */
+
     pdf = 0.0;
     vec3 f = vec3(0.0);
 
@@ -254,6 +264,11 @@ vec3 DisneyEval(State state, vec3 V, vec3 N, vec3 L, out float pdf)
     V = ToLocal(T, B, N, V);
     L = ToLocal(T, B, N, L);
 
+    /*
+        然后代码计算半向量 H，它是视图向量和光向量之间的向量。 材料的色调颜色是根据材料属性和折
+        射率计算的。 不同波瓣（漫反射、介电反射、金属反射、玻璃/镜面 BSDF 和透明涂层）的权重是
+        根据材料属性计算的。
+    */
     vec3 H;
     if (L.z > 0.0)
         H = normalize(L + V);
@@ -290,6 +305,8 @@ vec3 DisneyEval(State state, vec3 V, vec3 N, vec3 L, out float pdf)
     glassPr *= invTotalWt;
     clearCtPr *= invTotalWt;
 
+    /*然后代码检查光和视图向量是否在表面的同一侧，如果是，它计算漫射波瓣的颜色贡献。 
+    然后计算介电反射、金属反射、玻璃/镜面 BSDF 和透明涂层波瓣（如果适用）的颜色贡献。*/
     bool reflect = L.z * V.z > 0;
 
     float tmpPdf = 0.0;
@@ -346,6 +363,9 @@ vec3 DisneyEval(State state, vec3 V, vec3 N, vec3 L, out float pdf)
         f += EvalClearcoat(state.mat, V, L, H, tmpPdf) * 0.25 * state.mat.clearcoat;
         pdf += tmpPdf * clearCtPr;
     }
-
+    /*
+        最后，该函数返回总颜色贡献，即所有波瓣贡献的总和乘以光矢量的 z 分量的绝对值
+        （表示撞击表面的光量）。 pdf 也会根据每个波瓣被选中的概率进行更新。
+    */
     return f * abs(L.z);
 }

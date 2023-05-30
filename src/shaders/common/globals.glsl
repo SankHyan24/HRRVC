@@ -143,15 +143,20 @@ uniform Camera camera;
 //RNG from code by Moroz Mykhailo (https://www.shadertoy.com/view/wltcRS)
 
 //internal RNG state 
+/*全局变量：一个称为 seed 的 4 分量无符号整数向量和一个称为 pixel 的 2 分量整数向量。*/
 uvec4 seed;
 ivec2 pixel;
-
+/*
+    InitRNG 函数采用一个 2 分量向量 p 和一个整数框架作为参数。 它将 pixel 的值设
+    置为 p 的整数部分，并将 seed 的值设置为一个包含 p.x、p.y、frame 以及 p.x 和 
+    p.y 之和的 4 分量向量。
+*/
 void InitRNG(vec2 p, int frame)
 {
     pixel = ivec2(p);
     seed = uvec4(p, uint(frame), uint(p.x) + uint(p.y));
 }
-
+/*pcg4d 函数将无符号整数向量 v 作为参数并对其进行修改。 它对 v 的组件执行一系列算术和按位运算以生成新的随机值。*/
 void pcg4d(inout uvec4 v)
 {
     v = v * 1664525u + 1013904223u;
@@ -159,17 +164,20 @@ void pcg4d(inout uvec4 v)
     v = v ^ (v >> 16u);
     v.x += v.y * v.w; v.y += v.z * v.x; v.z += v.x * v.y; v.w += v.y * v.z;
 }
-
+/*rand 函数在全局种子向量上调用 pcg4d 并返回一个介于 0 和 1 之间的随机值，方法是将种子的 x 分量除以无符号 32 位整数的最大值。*/
 float rand()
 {
     pcg4d(seed); return float(seed.x) / float(0xffffffffu);
 }
-
+/*
+    FaceForward 函数将两个三分量向量 a 和 b 作为参数，如果 a 和 b 的点积为正则返回 b，否则
+    返回 -b。 此函数常用于计算机图形，以确保表面法线朝向观察者。
+*/
 vec3 FaceForward(vec3 a, vec3 b)
 {
     return dot(a, b) < 0.0 ? -b : b;
 }
-
+/*Luminance 函数采用表示 RGB 空间中颜色的 3 分量向量 c，并使用标准公式返回其亮度值。 此函数对于将彩色图像转换为灰度图像很有用。*/
 float Luminance(vec3 c)
 {
     return 0.212671 * c.x + 0.715160 * c.y + 0.072169 * c.z;

@@ -188,8 +188,8 @@ vec3 EvalTransmittance(Ray r)
 vec3 DirectLight(in Ray r, in State state, bool isSurface)
 {
     /*
-    首先将直接照明贡献和间接照明贡献初始化为零。 然后，它通过将光线的命中点添加到表面法线
-    乘以一个小的 epsilon 值来计算散射位置。
+        首先将直接照明贡献和input light初始化为零。 然后，它通过将光线的命中点添加到表面法线
+        乘以一个小的 epsilon 值来计算散射位置。
     */
     vec3 Ld = vec3(0.0);
     vec3 Li = vec3(0.0);
@@ -291,13 +291,13 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
         {
             Ray shadowRay = Ray(scatterPos, lightSample.direction);
 
-            /*
-                如果场景包含体积，它会评估介质的透射率并使用 Henyey-Greenstein 相函数计算散射相函数。 
-                然后计算 MIS 权重并添加对直接照明的贡献。 如果场景中没有体积，它会使用简单的二进制命中
-                测试来检查阴影并添加对直接照明的贡献。总的来说，此代码用于计算分析灯的直接照明贡献，并考
-                虑了体积和单面灯的存在。
-            */
-            // If there are volumes in the scene then evaluate transmittance rather than a binary anyhit test
+/*
+    如果场景包含体积，它会评估介质的透射率并使用 Henyey-Greenstein 相函数计算散射相函数。 
+    然后计算 MIS 权重并添加对直接照明的贡献。 如果场景中没有体积，它会使用简单的二进制命中
+    测试来检查阴影并添加对直接照明的贡献。总的来说，此代码用于计算分析灯的直接照明贡献，并考
+    虑了体积和单面灯的存在。
+*/
+// If there are volumes in the scene then evaluate transmittance rather than a binary anyhit test
 #if defined(OPT_MEDIUM) && defined(OPT_VOL_MIS)
             Li *= EvalTransmittance(shadowRay);
 
@@ -449,7 +449,7 @@ vec4 PathTrace(Ray r)
 
 
 /*
-    如果定义了 OPT_MEDIUM，该函数会初始化媒体跟踪的变量。 如果介质类型是 MEDIUM_SCATTER，函数在介质中采
+    如果定义了 OPT_MEDIUM，该函数会初始化介质跟踪的变量。 如果介质类型是 MEDIUM_SCATTER，函数在介质中采
     样一个距离，更新吞吐量，将光线原点移动到散射位置，评估透射率，根据相位函数选择一
     个新方向，并更新 scatterSample.pdf 和 r.方向变量。
 */
@@ -574,3 +574,4 @@ vec4 PathTrace(Ray r)
 /*该函数返回一个包含最终辐射值和 alpha 值的 vec4 对象。*/
     return vec4(radiance, alpha);
 }
+
