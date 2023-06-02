@@ -57,6 +57,26 @@ struct Medium
     float anisotropy;
 };
 
+/*
+    baseColor：表示材质漫反射颜色的 3 分量向量
+    opacity：控制材质透明度的标量
+    alphaMode：一个整数，指定要使用的 alpha 混合模式
+    alphaCutoff：确定 alpha 测试阈值的标量
+    emission：一个三分量向量，表示材料的发射颜色
+    anisotropic：控制材料反射各向异性水平的标量
+    metallic：控制材料中金属反射水平的标量
+    roughness：控制材料表面粗糙度水平的标量
+    subsurface：控制材料中次表面散射量的标量
+    specularTint：控制材质镜面反射高光颜色的标量
+    sheen：控制材料光泽度的标量
+    sheenTint：控制材质光泽颜色的标量
+    clearcoat：控制材料中透明涂层反射水平的标量
+    clearcoatRoughness：控制材料透明涂层粗糙度水平的标量
+    specTrans：控制材质中镜面反射传输量的标量
+    ior：表示材料折射率的标量
+    ax, ay：表示材料各向异性方向的标量
+    medium：表示观看或传输材料的媒体的结构。
+*/
 struct Material
 {
     vec3 baseColor;

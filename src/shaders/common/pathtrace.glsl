@@ -24,6 +24,8 @@
 
 // sc: get the material from the state.matID to state.mat
 // sc: the Ray r only used to determine the direction of the state.normal
+
+
 void GetMaterial(inout State state, in Ray r)
 {
     int index = state.matID * 8;
@@ -591,4 +593,202 @@ vec4 PathTrace(Ray r)
 /*该函数返回一个包含最终辐射值和 alpha 值的 vec4 对象。*/
     return vec4(radiance, alpha);
 }
+
+
+// #define eps 0.00001
+// #define LIGHTPATHLENGTH 2
+// #define EYEPATHLENGTH 3
+// #define SAMPLES 8
+
+// #define SHOWSPLITLINE
+// #define FULLBOX
+
+// #define DOF
+// #define ANIMATENOISE
+// #define MOTIONBLUR
+
+// #define MOTIONBLURFPS 12.
+
+// #define LIGHTCOLOR vec3(16.86, 10.76, 8.2)*200.
+// #define WHITECOLOR vec3(.7295, .7355, .729)*0.7
+// #define GREENCOLOR vec3(.117, .4125, .115)*0.7
+// #define REDCOLOR vec3(.611, .0555, .062)*0.7
+
+
+// struct LightPathNode {
+//     vec3 color;
+//     vec3 position;
+//     vec3 normal;
+// };
+
+// LightPathNode lpNodes[LIGHTPATHLENGTH];
+
+// void constructLightPath(inout State state) {
+//     LightSampleRec lightSample;
+//     Light light;
+
+//     //Pick a light to sample
+//     int index = int(rand() * float(numOfLights)) * 5;
+
+//     // Fetch light Data
+//     vec3 position = texelFetch(lightsTex, ivec2(index + 0, 0), 0).xyz;
+//     vec3 emission = texelFetch(lightsTex, ivec2(index + 1, 0), 0).xyz;
+//     vec3 u        = texelFetch(lightsTex, ivec2(index + 2, 0), 0).xyz; // u vector for rect
+//     vec3 v        = texelFetch(lightsTex, ivec2(index + 3, 0), 0).xyz; // v vector for rect
+//     vec3 params   = texelFetch(lightsTex, ivec2(index + 4, 0), 0).xyz;
+//     float radius  = params.x;
+//     float area    = params.y;
+//     float type    = params.z; // 0->Rect, 1->Sphere, 2->Distant
+
+//     light = Light(position, emission, u, v, radius, area, type);
+    
+
+//     if(type == 2){
+//         vec3 ro = UniformSampleSphere(rand(), rand());
+//         vec3 rd = SampleHemisphereDirection(ro); 
+//         ro = position - ro*radius;
+//         Ray r = Ray(ro, rd);
+
+//         vec3 color = emission;
+
+//         for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
+//             lpNodes[i].position = lpNodes[i].color = lpNodes[i].normal = vec3(0.);
+//         }
+
+//         bool specularBounce;
+//         float w = 0.;
+//         bool hit = false; 
+
+//         for( int i=0; i<LIGHTPATHLENGTH; i++ ) {
+//             vec3 normal;
+//             // vec2 res = intersect( ro, rd, normal );
+//             hit = ClosestHit(r, state, lightSample); 
+//             if(hit){
+//                 if(state.isEmitter == true) {
+//                 break;
+//             }
+//             GetMaterial(state, r);
+//             Material mat = state.mat;
+//             {
+//                 ro = ro + rd * state.hitDist;            
+//                 color *= mat.baseColor;
+                
+//                 lpNodes[i].position = ro;
+//                 lpNodes[i].color = color;
+//                 lpNodes[i].normal = state.normal;
+//                 //specular here
+//                 rd = SampleHemisphereDirection(state.normal);
+//             }
+//             }
+//              else break;
+//         }
+//     }
+// }
+
+// float getWeightForPath( int e, int l ) {
+//     return float(e + l + 2);
+// }
+
+
+// vec4 BidirecPathTrace(Ray r) {
+//     State state;
+//     constructLightPath(state);
+//     float alpha = 1.0; 
+//     vec3 tcol = vec3(0.);
+//     vec3 fcol  = vec3(1.);
+//     vec3 ro = r.origin;
+//     vec3 rd = r.direction;
+
+//     bool specularBounce = false; 
+// 	int jdiff = 0;
+
+//     bool hit = false; //2360
+
+//     LightSampleRec lightSample;
+//     Light light;
+
+//     //Pick a light to sample
+//     int index = int(rand() * float(numOfLights)) * 5;
+
+//     // Fetch light Data
+//     vec3 position = texelFetch(lightsTex, ivec2(index + 0, 0), 0).xyz;
+//     vec3 emission = texelFetch(lightsTex, ivec2(index + 1, 0), 0).xyz;
+//     vec3 u        = texelFetch(lightsTex, ivec2(index + 2, 0), 0).xyz; // u vector for rect
+//     vec3 v        = texelFetch(lightsTex, ivec2(index + 3, 0), 0).xyz; // v vector for rect
+//     vec3 params   = texelFetch(lightsTex, ivec2(index + 4, 0), 0).xyz;
+//     float radius  = params.x;
+//     float area    = params.y;
+//     float type    = params.z; // 0->Rect, 1->Sphere, 2->Distant
+
+//     light = Light(position, emission, u, v, radius, area, type);
+
+
+//     if(type == 2){
+//         for( int j=0; j<EYEPATHLENGTH; ++j ) {
+//             Ray r2 = Ray(ro, rd);
+//             hit = ClosestHit(r2, state, lightSample); 
+            
+//             if( !hit ) {
+//                 return vec4(tcol, alpha);
+//             }
+            
+//             if( state.isEmitter ) {
+//                 if( specularBounce ) tcol += fcol*light.emission;
+//                 return vec4(tcol, alpha); // the light has no diffuse component, therefore we can return col
+//             }
+//             GetMaterial(state, r2); 
+//             Material mat = state.mat;
+//             vec3 matcolor = mat.baseColor;
+            
+//             ro = state.fhp;  
+//             vec3 rdi = rd;
+//             // //specular here
+//             rd = SampleHemisphereDirection(state.normal);
+                
+//             if(!specularBounce || dot(rd,state.normal) < 0.) {  
+//                 fcol *= matcolor;
+//             }
+
+            
+//             vec3 ld = UniformSampleSphere(rand(), rand()) * light.radius;        
+            
+//             // path of (j+1) eyepath-nodes, and 1 lightpath-node ( = direct light sampling )
+//             vec3 nld = normalize(ld);
+//             Ray r1 = Ray(ro, nld);
+//             // bool AnyHit(Ray r, float maxDist)
+//             if( !specularBounce &&  !AnyHit( r1,  length(ld))) 
+//             {
+//                 float cos_a_max = sqrt(1. - clamp(light.radius * light.radius / dot(light.position-ro, light.position-ro), 0., 1.));
+//                 float weight = 2. * (1. - cos_a_max);
+
+//                 tcol += (fcol * light.emission) * (weight * clamp(dot( nld, state.normal ), 0., 1.))
+//                     / getWeightForPath(jdiff,-1);
+//             }
+
+
+//             {
+//                 for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
+//                     // path of (j+1) eyepath-nodes, and i+2 lightpath-nodes.
+//                     vec3 lp = lpNodes[i].position - ro;
+//                     vec3 lpn = normalize( lp );
+//                     vec3 lc = lpNodes[i].color;
+//                     Ray r2 = Ray(ro, lpn);
+//                     if( !AnyHit( r2, length(lp)) ) {
+//                         float weight = 
+//                                 clamp( dot( lpn, state.normal ), 0.0, 1.) 
+//                             * clamp( dot( -lpn, lpNodes[i].normal ), 0., 1.)
+//                             * clamp(1. / dot(lp, lp), 0., 1.)
+//                             ;
+
+//                         tcol += lc * fcol * weight / getWeightForPath(jdiff,i);
+//                     }
+//                 }
+//             }
+
+//             if( !specularBounce) jdiff++; else jdiff = 0;
+//         }  
+//     }   
+    
+//     return vec4(tcol, alpha);
+// }
 

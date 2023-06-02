@@ -37,7 +37,7 @@ in vec2 TexCoords;
 #include common/disney.glsl
 #include common/lambert.glsl
 #include common/pathtrace.glsl
-
+#include common/bidirectrace.glsl
 /*
     
 */
@@ -67,12 +67,25 @@ void main(void)
     float cam_r2 = rand() * camera.aperture;
     vec3 randomAperturePos = (cos(cam_r1) * camera.right + sin(cam_r1) * camera.up) * sqrt(cam_r2);
     vec3 finalRayDir = normalize(focalPoint - randomAperturePos);
-
+    
     Ray ray = Ray(camera.position + randomAperturePos, finalRayDir);
 
     vec4 accumColor = texture(accumTexture, coordsTile);
 
-    vec4 pixelColor = PathTrace(ray);
+
+    vec2 p = -1.0 + 2.0 * (gl_FragCoord.xy) / resolution.xy;
+    p.x *= resolution.x/resolution.y;
+    float seed = p.x + p.y * 3.43121412313;
+    constructLightPath( seed );
+    vec4 pixelColor; 
+    for( int a=0; a<SAMPLES; a++ ){
+        pixelColor += traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
+    }
+    pixelColor /= SAMPLES;
+
+    // vec4 pixelColor = PathTrace(ray);
+    
+    // vec4 pixelColor = BidirecPathTrace(ray);
 
     color = pixelColor + accumColor;
 }

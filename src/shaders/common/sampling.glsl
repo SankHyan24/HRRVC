@@ -276,3 +276,18 @@ float PhaseHG(float cosTheta, float g)
     float denom = 1 + g * g + 2 * g * cosTheta;
     return INV_4_PI * (1 - g * g) / (denom * sqrt(denom));
 }
+
+vec3 SampleHemisphereDirection( const vec3 n) {
+  	vec2 r = vec2(rand(), rand());
+    
+	vec3  uu = normalize( cross( n, vec3(0.0,1.0,1.0) ) );
+	vec3  vv = cross( uu, n );
+	
+	float ra = sqrt(r.y);
+	float rx = ra*cos(6.2831*r.x); 
+	float ry = ra*sin(6.2831*r.x);
+	float rz = sqrt( 1.0-r.y );
+	vec3  rr = vec3( rx*uu + ry*vv + rz*n );
+    
+    return normalize( rr );
+}
