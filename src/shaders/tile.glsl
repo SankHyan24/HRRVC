@@ -78,9 +78,10 @@ void main(void)
     vec4 pixelColor; 
 
     constructLightPath( seed );
-    pixelColor += traceEyePath(camera.position + randomAperturePos, finalRayDir ,false, seed);
+    pixelColor = traceEyePath(camera.position + randomAperturePos, finalRayDir ,false, seed);
 
-    // vec4 pixelColor = PathTrace(ray);
+    // pixelColor = PathTrace(ray);
+    // pixelColor *= 2; 
     
     // vec4 pixelColor = BidirecPathTrace(ray);
 

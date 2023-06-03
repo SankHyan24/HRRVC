@@ -1,5 +1,5 @@
 #define eps 0.00001
-#define LIGHTPATHLENGTH 2
+#define LIGHTPATHLENGTH 4
 #define EYEPATHLENGTH 3
 #define SAMPLES 10
 
@@ -11,19 +11,6 @@
 #define MOTIONBLUR
 
 #define MOTIONBLURFPS 12.
-
-#define LIGHTCOLOR vec3(16.86, 10.76, 8.2)*200.
-#define WHITECOLOR vec3(.7295, .7355, .729)*0.7
-#define GREENCOLOR vec3(.117, .4125, .115)*0.7
-#define REDCOLOR vec3(.611, .0555, .062)*0.7
-
-//-----------------------------------------------------
-// Intersection functions (by iq)
-//-----------------------------------------------------
-
-//-----------------------------------------------------
-// scene
-//-----------------------------------------------------
 
 vec3 cosWeightedRandomHemisphereDirection( const vec3 n, inout float seed ) {
   	vec2 r = vec2(rand(), rand());
@@ -51,41 +38,6 @@ vec3 randomHemisphereDirection( const vec3 n, inout float seed ) {
 	return dot(dr,n) * dr;
 }
 
-vec3 getBRDFRay( in vec3 n, const in vec3 rd, const in float m, inout bool specularBounce, inout float seed ) {
-    specularBounce = false;
-    
-    vec3 r = cosWeightedRandomHemisphereDirection( n, seed );
-    return r; 
-    // if(  !matIsSpecular( m ) ) {
-    //     return r;
-    // } else {
-    //     specularBounce = true;
-        
-    //     float n1, n2, ndotr = dot(rd,n);
-        
-    //     if( ndotr > 0. ) {
-    //         n1 = 1./1.5; n2 = 1.;
-    //         n = -n;
-    //     } else {
-    //         n2 = 1./1.5; n1 = 1.;
-    //     }
-                
-    //     float r0 = (n1-n2)/(n1+n2); r0 *= r0;
-	// 	float fresnel = r0 + (1.-r0) * pow(1.0-abs(ndotr),5.);
-        
-    //     vec3 ref = refract( rd, n, n2/n1 );        
-    //     if( ref == vec3(0) || hash1(seed) < fresnel || m > 6.5 ) {
-    //         ref = reflect( rd, n );
-    //     }
-        
-    //     return ref; // normalize( ref + 0.1 * r );
-	// }
-}
-
-//-----------------------------------------------------
-// lightpath
-//-----------------------------------------------------
-
 struct LightPathNode {
     vec3 color;
     vec3 position;
@@ -97,6 +49,7 @@ LightPathNode lpNodes[LIGHTPATHLENGTH];
 void constructLightPath( inout float seed ) {
     State state; 
     LightSampleRec lightSample;
+    ScatterSampleRec scatterSample;
     Light light;
 
     int index = int(rand() * float(numOfLights)) * 5;
@@ -120,7 +73,6 @@ void constructLightPath( inout float seed ) {
         lpNodes[i].position = lpNodes[i].color = lpNodes[i].normal = vec3(0.);
     }
     
-    bool specularBounce;
     float w = 0.;
     bool hit = false; 
     for( int i=0; i<LIGHTPATHLENGTH; i++ ) {
@@ -135,14 +87,17 @@ void constructLightPath( inout float seed ) {
             }
             GetMaterial(state, r);
             Material mat = state.mat;
-            ro = ro + rd*state.hitDist;            
+            ro = ro + rd*state.hitDist + eps * state.normal;            
             color *= mat.baseColor;
             
             lpNodes[i].position = ro;
             lpNodes[i].color = color;
             lpNodes[i].normal = state.normal;
-
-            rd = getBRDFRay(state.normal, rd, 0, specularBounce, seed );
+            vec3 rdi = rd;
+            scatterSample.f = DisneySample(state,  -rdi, state.ffnormal, scatterSample.L, scatterSample.pdf);
+            // if (scatterSample.pdf > 0.0)
+                // throughput *= scatterSample.f / scatterSample.pdf;
+            rd = scatterSample.L; 
         } else {
             break;
         }
@@ -161,8 +116,10 @@ vec4 traceEyePath( in vec3 ro, in vec3 rd, const in bool bidirectTrace, inout fl
     State state; 
     vec3 tcol = vec3(0.);
     vec3 fcol  = vec3(1.);
+    vec3 throughput = vec3(1.); 
     float alpha = 1.0; 
     LightSampleRec lightSample;
+    ScatterSampleRec scatterSample;
     Light light;
     
     int index = int(rand() * float(numOfLights)) * 5;
@@ -178,35 +135,41 @@ vec4 traceEyePath( in vec3 ro, in vec3 rd, const in bool bidirectTrace, inout fl
 
     light = Light(position, emission, u, v, radius, area, type);
 
-    bool specularBounce = false; 
 	int jdiff = 0;
     
     bool hit = false; 
     
     for( int j=0; j<EYEPATHLENGTH; ++j ) {
+        float pdf = 0.0; 
         vec3 normal;
            
         Ray r = Ray(ro, rd); 
         hit = ClosestHit(r, state, lightSample); 
         Material mat; 
         if(!hit){
-            return vec4(tcol, 1.0);
+            return vec4(tcol * throughput, 1.0);
         }
         
         GetMaterial(state, r);
         mat = state.mat;
+
         if(hit && state.isEmitter){
             tcol += fcol * lightSample.emission;
-            return vec4(tcol, 1.0);
+            return vec4(tcol * throughput, 1.0) ;
         }
         
         
         ro = ro + state.hitDist * rd + eps * state.normal;  
         vec3 rdi = rd;
-        rd = getBRDFRay( state.normal, rd, 0, specularBounce, seed );
+
+        scatterSample.f = DisneySample(state,  -rdi, state.ffnormal, scatterSample.L, scatterSample.pdf);
+        if (scatterSample.pdf > 0.0)
+            throughput *= scatterSample.f / scatterSample.pdf;
+
+        rd = scatterSample.L; 
         
 
-        if(!specularBounce || dot(rd,state.normal) < 0.) {  
+        if(dot(rd,state.normal) < 0.) {  
         	fcol *= mat.baseColor;
         }
         
@@ -219,11 +182,10 @@ vec4 traceEyePath( in vec3 ro, in vec3 rd, const in bool bidirectTrace, inout fl
         Ray r2 = Ray(ro, ld);
         hit = ClosestHit(r2, state, lightSample);
         bool isEmitter = state.isEmitter;
-
-
-        if( !specularBounce && isEmitter ) {
-             tcol += (fcol * lightSample.emission) * clamp(dot( nld, state.normal ), 0., 1.) 
-             / lightSample.pdf / getWeightForPath(jdiff,-1); 
+        
+        if( isEmitter ) {
+             tcol += (fcol * lightSample.emission) * clamp(dot( nld, state.normal ), 0., 1.) * (1-state.mat.metallic)
+             / lightSample.pdf / getWeightForPath(jdiff,-1) * throughput; 
             
         }
 
@@ -245,14 +207,14 @@ vec4 traceEyePath( in vec3 ro, in vec3 rd, const in bool bidirectTrace, inout fl
                                * clamp(1. / dot(lp, lp), 0., 1.)
                             ;
 
-                        tcol += lc * fcol * weight / getWeightForPath(jdiff,i);
+                        tcol += lc * fcol * weight / getWeightForPath(jdiff,i) * throughput;
                         return vec4(tcol, 1.0);
                     }
                 }
             }
         }
         
-        if( !specularBounce) jdiff++; else jdiff = 0;
+        jdiff++;
     }  
     
     return vec4(tcol, 1.0);

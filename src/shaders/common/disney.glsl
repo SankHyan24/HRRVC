@@ -240,6 +240,7 @@ vec3 DisneySample(State state, vec3 V, vec3 N, out vec3 L, out float pdf)
 
     return DisneyEval(state, V, N, L, pdf);
 }
+
 /*
     此代码是 Disney BRDF 模型的实现，该模型是用于在计算机图形中渲染材质的基于物理的模型。 
     给定状态（其中包括有关正在渲染的材质的信息）、视图向量 (V)、法线向量 (N) 和光向量 (L)，

@@ -70,12 +70,8 @@ void main(void)
     constructLightPath( seed );
     vec4 pixelColor; 
     
-    for( int a=0; a<8; a++ ){
-        pixelColor += traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
-    }
-    pixelColor /= 8;
-    
-    // vec4 pixelColor = BidirecPathTrace(ray);
+
+    pixelColor = traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
 
     color = pixelColor;
 }
