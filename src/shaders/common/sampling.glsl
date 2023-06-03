@@ -163,6 +163,7 @@ vec3 UniformSampleHemisphere(float r1, float r2)
     return vec3(r * cos(phi), r * sin(phi), r1);
 }
 
+
 vec3 UniformSampleSphere(float r1, float r2)
 {
     float z = 1.0 - 2.0 * r1;
@@ -291,3 +292,4 @@ vec3 SampleHemisphereDirection( const vec3 n) {
     
     return normalize( rr );
 }
+

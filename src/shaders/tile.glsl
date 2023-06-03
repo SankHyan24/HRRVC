@@ -72,16 +72,13 @@ void main(void)
 
     vec4 accumColor = texture(accumTexture, coordsTile);
 
-
     vec2 p = -1.0 + 2.0 * (gl_FragCoord.xy) / resolution.xy;
     p.x *= resolution.x/resolution.y;
     float seed = p.x + p.y * 3.43121412313;
-    constructLightPath( seed );
     vec4 pixelColor; 
-    for( int a=0; a<SAMPLES; a++ ){
-        pixelColor += traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
-    }
-    pixelColor /= SAMPLES;
+
+    constructLightPath( seed );
+    pixelColor += traceEyePath(camera.position + randomAperturePos, finalRayDir ,false, seed);
 
     // vec4 pixelColor = PathTrace(ray);
     
