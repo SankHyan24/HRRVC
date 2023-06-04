@@ -79,7 +79,7 @@ void main(void)
 
     constructLightPath( seed );
 
-    pixelColor = traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
+    pixelColor = traceEyePath(camera.position + randomAperturePos, finalRayDir ,false, seed);
 
     // pixelColor = PathTrace(ray);
     // pixelColor *= 2; 
