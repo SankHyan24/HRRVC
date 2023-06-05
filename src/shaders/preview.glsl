@@ -68,10 +68,13 @@ void main(void)
     p.x *= resolution.x/resolution.y;
     float seed = p.x + p.y * 3.43121412313;
     constructLightPath( seed );
-    vec4 pixelColor; 
+    // vec4 pixelColor; 
     
 
-    pixelColor = traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
+    // pixelColor = traceEyePath(camera.position + randomAperturePos, finalRayDir ,true, seed);
+    Ray ray = Ray(camera.position + randomAperturePos, finalRayDir);
+
+    vec4 pixelColor = PathTrace(ray);
 
     color = pixelColor;
 }
