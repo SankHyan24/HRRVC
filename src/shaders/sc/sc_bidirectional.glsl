@@ -1,14 +1,4 @@
 #define eps 0.00001
-#define LIGHTPATHLENGTH 2
-#define EYEPATHLENGTH 3
-#define SAMPLES 10
-
-#define SHOWSPLITLINE
-#define FULLBOX
-
-#define DOF
-#define ANIMATENOISE
-#define MOTIONBLUR
 
 #define MOTIONBLURFPS 12.
 
@@ -19,5 +9,7 @@
 
 
 vec4 scBDPT(Ray r){
+    vec3 ro = r.origin;
+    vec3 rd = r.direction;
     return vec4(0., 0., 0., 0.);
 }

@@ -1,16 +1,7 @@
 #define eps 0.00001
 #define LIGHTPATHLENGTH 10
 #define EYEPATHLENGTH 8
-#define SAMPLES 10
 
-#define SHOWSPLITLINE
-#define FULLBOX
-
-#define DOF
-#define ANIMATENOISE
-#define MOTIONBLUR
-
-#define MOTIONBLURFPS 12.
 
 vec3 cosWeightedRandomHemisphereDirection( const vec3 n, inout float seed ) {
   	vec2 r = vec2(rand(), rand());
