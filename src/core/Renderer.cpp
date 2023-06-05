@@ -30,7 +30,7 @@
 
 namespace GLSLPT
 {
-    Program* LoadShaders(const ShaderInclude::ShaderSource& vertShaderObj, const ShaderInclude::ShaderSource& fragShaderObj)
+    Program *LoadShaders(const ShaderInclude::ShaderSource &vertShaderObj, const ShaderInclude::ShaderSource &fragShaderObj)
     {
         std::vector<Shader> shaders;
         shaders.push_back(Shader(vertShaderObj, GL_VERTEX_SHADER));
@@ -38,36 +38,8 @@ namespace GLSLPT
         return new Program(shaders);
     }
 
-    Renderer::Renderer(Scene* scene, const std::string& shadersDirectory)
-        : scene(scene)
-        , BVHBuffer(0)
-        , BVHTex(0)
-        , vertexIndicesBuffer(0)
-        , vertexIndicesTex(0)
-        , verticesBuffer(0)
-        , verticesTex(0)
-        , normalsBuffer(0)
-        , normalsTex(0)
-        , materialsTex(0)
-        , transformsTex(0)
-        , lightsTex(0)
-        , textureMapsArrayTex(0)
-        , envMapTex(0)
-        , envMapCDFTex(0)
-        , pathTraceTextureLowRes(0)
-        , pathTraceTexture(0)
-        , accumTexture(0)
-        , tileOutputTexture()
-        , denoisedTexture(0)
-        , pathTraceFBO(0)
-        , pathTraceFBOLowRes(0)
-        , accumFBO(0)
-        , outputFBO(0)
-        , shadersDirectory(shadersDirectory)
-        , pathTraceShader(nullptr)
-        , pathTraceShaderLowRes(nullptr)
-        , outputShader(nullptr)
-        , tonemapShader(nullptr)
+    Renderer::Renderer(Scene *scene, const std::string &shadersDirectory)
+        : scene(scene), BVHBuffer(0), BVHTex(0), vertexIndicesBuffer(0), vertexIndicesTex(0), verticesBuffer(0), verticesTex(0), normalsBuffer(0), normalsTex(0), materialsTex(0), transformsTex(0), lightsTex(0), textureMapsArrayTex(0), envMapTex(0), envMapCDFTex(0), pathTraceTextureLowRes(0), pathTraceTexture(0), accumTexture(0), tileOutputTexture(), denoisedTexture(0), pathTraceFBO(0), pathTraceFBOLowRes(0), accumFBO(0), outputFBO(0), shadersDirectory(shadersDirectory), pathTraceShader(nullptr), pathTraceShaderLowRes(nullptr), outputShader(nullptr), tonemapShader(nullptr)
     {
         if (scene == nullptr)
         {
@@ -129,7 +101,6 @@ namespace GLSLPT
         // Delete denoiser data
         delete[] denoiserInputFramePtr;
         delete[] frameOutputPtr;
-
     }
 
     void Renderer::InitGPUDataBuffers()
@@ -187,7 +158,7 @@ namespace GLSLPT
         // Create texture for lights
         if (!scene->lights.empty())
         {
-            //Create texture for lights
+            // Create texture for lights
             glGenTextures(1, &lightsTex);
             glBindTexture(GL_TEXTURE_2D, lightsTex);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, (sizeof(Light) / sizeof(Vec3)) * scene->lights.size(), 1, 0, GL_RGB, GL_FLOAT, &scene->lights[0]);
@@ -299,7 +270,7 @@ namespace GLSLPT
         tile.x = -1;
         tile.y = numTiles.y - 1;
 
-        // Create FBOs for path trace shader 
+        // Create FBOs for path trace shader
         glGenFramebuffers(1, &pathTraceFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBO);
 
@@ -312,7 +283,7 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pathTraceTexture, 0);
 
-        // Create FBOs for low res preview shader 
+        // Create FBOs for low res preview shader
         glGenFramebuffers(1, &pathTraceFBOLowRes);
         glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBOLowRes);
 
@@ -413,6 +384,12 @@ namespace GLSLPT
             pathtraceDefines += "#define OPT_RR_DEPTH " + std::to_string(scene->renderOptions.RRDepth) + "\n";
         }
 
+        // sc:
+        if (scene->renderOptions.useBidirectionalPathTracing)
+        {
+            pathtraceDefines += "#define OPT_BDPT\n";
+        }
+
         if (scene->renderOptions.enableUniformLight)
             pathtraceDefines += "#define OPT_UNIFORM_LIGHT\n";
 
@@ -500,7 +477,7 @@ namespace GLSLPT
             glUniform2f(glGetUniformLocation(shaderObject, "envMapRes"), (float)scene->envMap->width, (float)scene->envMap->height);
             glUniform1f(glGetUniformLocation(shaderObject, "envMapTotalSum"), scene->envMap->totalSum);
         }
-        
+
         glUniform1i(glGetUniformLocation(shaderObject, "topBVHIndex"), scene->bvhTranslator.topLevelIndex);
         glUniform2f(glGetUniformLocation(shaderObject, "resolution"), float(renderSize.x), float(renderSize.y));
         glUniform2f(glGetUniformLocation(shaderObject, "invNumTiles"), invNumTiles.x, invNumTiles.y);
@@ -545,7 +522,7 @@ namespace GLSLPT
 
     void Renderer::Render()
     {
-        // If maxSpp was reached then stop rendering. 
+        // If maxSpp was reached then stop rendering.
         // TODO: Tonemapping and denosing still need to be able to run on final image
         if (!scene->dirty && scene->renderOptions.maxSpp != -1 && sampleCounter >= scene->renderOptions.maxSpp)
             return;
@@ -566,7 +543,7 @@ namespace GLSLPT
         else
         {
             // Renders to pathTraceTexture while using previously accumulated samples from accumTexture
-            // Rendering is done a tile per frame, so if a 500x500 image is rendered with a tileWidth and tileHeight of 250 then, all tiles (for a single sample) 
+            // Rendering is done a tile per frame, so if a 500x500 image is rendered with a tileWidth and tileHeight of 250 then, all tiles (for a single sample)
             // get rendered after 4 frames
             glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBO);
             glViewport(0, 0, tileWidth, tileHeight);
@@ -616,7 +593,7 @@ namespace GLSLPT
         return maxSpp <= 0 ? 0.0f : sampleCounter * 100.0f / maxSpp;
     }
 
-    void Renderer::GetOutputBuffer(unsigned char** data, int& w, int& h)
+    void Renderer::GetOutputBuffer(unsigned char **data, int &w, int &h)
     {
         w = renderSize.x;
         h = renderSize.y;
@@ -715,7 +692,7 @@ namespace GLSLPT
                 filter.execute();
 
                 // Check for errors
-                const char* errorMessage;
+                const char *errorMessage;
                 if (device.getError(errorMessage) != oidn::Error::None)
                     std::cout << "Error: " << errorMessage << std::endl;
 
@@ -780,7 +757,7 @@ namespace GLSLPT
         glUniform2f(glGetUniformLocation(shaderObject, "tileOffset"), (float)tile.x * invNumTiles.x, (float)tile.y * invNumTiles.y);
         glUniform3f(glGetUniformLocation(shaderObject, "uniformLightCol"), scene->renderOptions.uniformLightCol.x, scene->renderOptions.uniformLightCol.y, scene->renderOptions.uniformLightCol.z);
         glUniform1f(glGetUniformLocation(shaderObject, "roughnessMollificationAmt"), scene->renderOptions.roughnessMollificationAmt);
-        glUniform1i(glGetUniformLocation(shaderObject, "frameNum"), frameCounter);   
+        glUniform1i(glGetUniformLocation(shaderObject, "frameNum"), frameCounter);
         pathTraceShader->StopUsing();
 
         pathTraceShaderLowRes->Use();

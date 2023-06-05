@@ -305,6 +305,7 @@ void MainLoop(void *arg)
     ImGuizmo::BeginFrame();
     {
         ImGui::Begin("Settings");
+        // sc:
 
         ImGui::Text("Samples: %d ", renderer->GetSampleCount());
 
@@ -352,6 +353,8 @@ void MainLoop(void *arg)
 
         if (ImGui::CollapsingHeader("Render Settings"))
         {
+            reloadShaders |= ImGui::Checkbox("Use Bidirectional Path Tracing", &renderOptions.useBidirectionalPathTracing);
+
             optionsChanged |= ImGui::SliderInt("Max Spp", &renderOptions.maxSpp, -1, 256);
             optionsChanged |= ImGui::SliderInt("Max Depth", &renderOptions.maxDepth, 1, 10);
 

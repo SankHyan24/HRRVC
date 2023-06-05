@@ -78,9 +78,11 @@ void main(void)
     vec4 pixelColor; 
 
     constructLightPath( seed );
-
+#ifdef OPT_BDPT
     pixelColor = traceEyePath(ray, false);
-    // pixelColor = PathTrace(ray);
+#else
+    pixelColor = PathTrace(ray);
+#endif
 
     color = pixelColor + accumColor;
 }

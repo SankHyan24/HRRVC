@@ -32,7 +32,7 @@
 
 namespace GLSLPT
 {
-    Program* LoadShaders(const ShaderInclude::ShaderSource& vertShaderObj, const ShaderInclude::ShaderSource& fragShaderObj);
+    Program *LoadShaders(const ShaderInclude::ShaderSource &vertShaderObj, const ShaderInclude::ShaderSource &fragShaderObj);
 
     struct RenderOptions
     {
@@ -97,6 +97,9 @@ namespace GLSLPT
         float envMapIntensity;
         float envMapRot;
         float roughnessMollificationAmt;
+
+        // sc:
+        bool useBidirectionalPathTracing = false;
     };
 
     class Scene;
@@ -104,8 +107,8 @@ namespace GLSLPT
     class Renderer
     {
     protected:
-        Scene* scene;
-        Quad* quad;
+        Scene *scene;
+        Quad *quad;
 
         // Opengl buffer objects and textures for storing scene data on the GPU
         GLuint BVHBuffer;
@@ -131,10 +134,10 @@ namespace GLSLPT
 
         // Shaders
         std::string shadersDirectory;
-        Program* pathTraceShader;
-        Program* pathTraceShaderLowRes;
-        Program* outputShader;
-        Program* tonemapShader;
+        Program *pathTraceShader;
+        Program *pathTraceShaderLowRes;
+        Program *outputShader;
+        Program *tonemapShader;
 
         // Render textures
         GLuint pathTraceTextureLowRes;
@@ -159,14 +162,14 @@ namespace GLSLPT
         float pixelRatio;
 
         // Denoiser output
-        Vec3* denoiserInputFramePtr;
-        Vec3* frameOutputPtr;
+        Vec3 *denoiserInputFramePtr;
+        Vec3 *frameOutputPtr;
         bool denoised;
 
         bool initialized;
 
     public:
-        Renderer(Scene* scene, const std::string& shadersDirectory);
+        Renderer(Scene *scene, const std::string &shadersDirectory);
         ~Renderer();
 
         void ResizeRenderer();
@@ -176,7 +179,7 @@ namespace GLSLPT
         void Update(float secondsElapsed);
         float GetProgress();
         int GetSampleCount();
-        void GetOutputBuffer(unsigned char**, int& w, int& h);
+        void GetOutputBuffer(unsigned char **, int &w, int &h);
 
     private:
         void InitGPUDataBuffers();
