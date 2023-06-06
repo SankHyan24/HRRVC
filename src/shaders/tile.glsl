@@ -38,6 +38,7 @@ in vec2 TexCoords;
 #include common/lambert.glsl
 #include common/pathtrace.glsl
 #include common/bidirectrace.glsl
+#include sc/lightvertex.glsl
 /*
     
 */
@@ -77,11 +78,11 @@ void main(void)
     float seed = p.x + p.y * 3.43121412313;
     vec4 pixelColor; 
 
-    constructLightPath( seed );
+    sc_constructLightPath( seed );
 #ifdef OPT_BDPT
     pixelColor = traceEyePath(ray, false);
 #else
-    pixelColor = PathTrace(ray);
+    pixelColor = traceEyePath(ray, true);
 #endif
 
     color = pixelColor + accumColor;

@@ -1,9 +1,10 @@
+
 #define eps 0.00001
-#define LIGHTPATHLENGTH 10
-#define EYEPATHLENGTH 2
+#define LIGHTPATHLENGTH 3
+#define EYEPATHLENGTH 3
 
 
-vec3 cosWeightedRandomHemisphereDirection( const vec3 n, inout float seed ) {
+vec3 cosWeightedRandomHemisphereDirection( const vec3 n) {
   	vec2 r = vec2(rand(), rand());
     
 	vec3  uu = normalize( cross( n, vec3(0.0,1.0,1.0) ) );
@@ -30,12 +31,15 @@ vec3 randomHemisphereDirection( const vec3 n, inout float seed ) {
 }
 
 struct LightPathNode {
-    vec3 color;
+    bool avaliable;
+    vec3 radiance;
     vec3 position;
     vec3 normal;
+
+    Material mat;
 };
 
-LightPathNode lpNodes[LIGHTPATHLENGTH];
+LightPathNode lightVertices[LIGHTPATHLENGTH];
 
 void constructLightPath( inout float seed ) {
     State state; 
@@ -65,7 +69,7 @@ void constructLightPath( inout float seed ) {
     vec3 throughput = vec3(1.0);
  
     for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
-        lpNodes[i].position = lpNodes[i].color = lpNodes[i].normal = vec3(0.);
+        lightVertices[i].position = lightVertices[i].radiance = lightVertices[i].normal = vec3(0.);
     }
     
     float w = 0.;
@@ -88,9 +92,9 @@ void constructLightPath( inout float seed ) {
             // if(scatterSample.pdf>0)
             // color *= scatterSample.f/scatterSample.pdf; //state.mat.baseColor;//TODO:
             // else break;
-            lpNodes[i].position = ro;
-            lpNodes[i].color = color;//TODO:
-            lpNodes[i].normal = state.normal;
+            lightVertices[i].position = ro;
+            lightVertices[i].radiance = color;//TODO:
+            lightVertices[i].normal = state.normal;
             
             // if (scatterSample.pdf > 0.0)
                 // throughput *= scatterSample.f / scatterSample.pdf;
@@ -108,6 +112,10 @@ void constructLightPath( inout float seed ) {
 
 float getWeightForPath( int e, int l ) {
     return float(e + l + 2);
+}
+
+bool if_pos_near( vec3 p1, vec3 p2 ) {
+    return (length(p1 - p2) < 0.02);
 }
 
 vec4 traceEyePath( in Ray ray_, const in bool bidirectTrace ) {
@@ -156,7 +164,8 @@ vec4 traceEyePath( in Ray ray_, const in bool bidirectTrace ) {
             float misWeight = 1.0;
             if (j > 0)
                 misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
-            radiance +=misWeight* throughput * lightSample.emission;
+            return vec4(misWeight* throughput * lightSample.emission, 1.0);
+            // radiance +=misWeight* throughput * lightSample.emission;
         }
         
 
@@ -165,37 +174,67 @@ vec4 traceEyePath( in Ray ray_, const in bool bidirectTrace ) {
         curnormal = state.ffnormal;
         // update current position
         if( bidirectTrace  ) {
-                for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
-                    float throughputForOneLight = 1.0; 
-                    // path of (j+1) eyepath-nodes, and i+2 lightpath-nodes.
-                    vec3 lp = lpNodes[i].position - ro;
-                    float lenlp = length(lp);
-                    vec3 lpn = normalize( lp );
-                    vec3 lc = lpNodes[i].color;
-
-                    float pass = 
-                        clamp( dot( lpn, curnormal ), 0.0, 1.) 
-                        * clamp( dot( -lpn, lpNodes[i].normal ), 0., 1.)
-                        * clamp(1. / dot(lp, lp) * 0.01, 0., 1.); 
+            // Vertex connection
+            State shadowState;
+            Material eyeMat = mat;
+            vec3 eyePos = ro;
+            vec3 eyeNormal = curnormal;
+            for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
+                if(lightVertices[i].avaliable == false) {
+                    // radiance += vec3(1.0);
+                    radiance += vec3(1.0);
                     
-                    if(i > 0){
-                        if(pass < 0.01){
-                            continue; 
-                        }
-                    }
-                
-                    if(true) {
-                        float weight = 
-                                 clamp( dot( lpn, curnormal ), 0.0, 1.) 
-                               * clamp( dot( -lpn, lpNodes[i].normal ), 0., 1.)
-                               * clamp(1. / dot(lp, lp), 0., 1.)
+                    break;}
+                if(if_pos_near(lightVertices[i].position, eyePos)) 
+                {
+                    // radiance += lightVertices[i].radiance*100;
+                    radiance += vec3(100.0);
+                    break;
+                }
 
-                            ;
-                        radiance += lc * (1-state.mat.metallic) *weight / getWeightForPath(j,i) * throughput / LIGHTPATHLENGTH; 
-                    }
+                // light vertex information
+                vec3 lightPos = lightVertices[i].position;
+                vec3 lightNormal = lightVertices[i].normal;
+                vec3 lightRadiance = lightVertices[i].radiance;
+                Material lightMat = lightVertices[i].mat;
+                // eye vertex information
+
+                // cosAtLight, cosAtEye
+                float eyelightDist = length(lightPos - eyePos);
+                vec3 eye2lightDir = normalize(lightPos - eyePos);
+                vec3 light2eyeDir = -eye2lightDir;
+
+                float cosAtLight = dot(lightNormal, light2eyeDir);
+                float cosAtEye = dot(eyeNormal, eye2lightDir);
+
+                if(cosAtEye < 0.0 || cosAtLight < 0.0){
+                     continue; }// culling invisible light
+                // shadow ray
+                bool shadowHit = true;
+#ifndef OPT_HRRVC
+                Ray shadowRay = Ray(eyePos, eye2lightDir);
+                bool inShadow = AnyHit(shadowRay, eyelightDist- EPS);
+                shadowHit = !inShadow;
+#else
+#endif
+                if(!shadowHit)continue;
+                // calculate weight
+                shadowState.mat = lightMat;
+                shadowState.eta = lightMat.ior;
+                float lightPdf, eyePdf;
+                vec3 lightBRDF = DisneyEval(shadowState, eye2lightDir, eyeNormal, light2eyeDir, lightPdf);
+                vec3 eyeBRDF = DisneyEval(state, light2eyeDir, lightNormal, eye2lightDir, eyePdf);
+                if(lightPdf < 0.0 || eyePdf < 0.0) {
+                    continue;}
+                vec3 connectionRadiance = throughput *lightRadiance * lightBRDF * eyeBRDF * cosAtLight * cosAtEye / (eyelightDist * eyelightDist);
+                float Weight = (lightPdf * cosAtLight + eyePdf*cosAtEye) ;
+                float misWeight = PowerHeuristic(Weight, lightSample.pdf);
+                // radiance += connectionRadiance;
+                // radiance += vec3(clamp(connectionRadiance, 1.0, 1000.0));
+                // radiance += vec3(1.0);
             }
         }
-        radiance += DirectLight(r,state,true)*throughput;
+        // radiance += DirectLight(r,state,true)*throughput;
 
         scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
         rd = scatterSample.L;
@@ -203,17 +242,17 @@ vec4 traceEyePath( in Ray ray_, const in bool bidirectTrace ) {
         if (scatterSample.pdf > 0.0)
             throughput *= scatterSample.f / scatterSample.pdf;
         else break; 
-
-        //RR 
-        // if (j >= 2) {
-        //     float rr = rand();
-        //     float p = 1.1 - 0.1 * j; 
-        //     if (rr > p) {
-        //         break;
-        //     }
-        //     throughput *= 1.0 / p;
-        // }
-
+        break;
+#ifdef OPT_RR
+        // Russian roulette
+        if (state.depth >= OPT_RR_DEPTH)
+        {
+            float q = min(max(throughput.x, max(throughput.y, throughput.z)) + 0.001, 0.95);
+            if (rand() > q)
+                break;
+            throughput /= q;
+        }
+#endif
     }  
     
     return vec4(radiance, 1.0);
