@@ -77,13 +77,10 @@ void main(void)
     p.x *= resolution.x/resolution.y;
     float seed = p.x + p.y * 3.43121412313;
     vec4 pixelColor; 
-
-    sc_constructLightPath( seed );
 #ifdef OPT_BDPT
-    pixelColor = traceEyePath(ray, false);
-#else
-    pixelColor = traceEyePath(ray, true);
+    sc_constructLightPath( seed );
 #endif
+    pixelColor = traceEyePath(ray);
 
     color = pixelColor + accumColor;
 }

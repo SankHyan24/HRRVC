@@ -388,7 +388,12 @@ namespace GLSLPT
         if (scene->renderOptions.useBidirectionalPathTracing)
         {
             pathtraceDefines += "#define OPT_BDPT\n";
+            int lightPathLength = scene->renderOptions.sc_BDPT_LIGHTPATH;
+            int eyePathLength = scene->renderOptions.sc_BDPT_EYEPATH;
+            // pathtraceDefines += "#define LIGHTPATHLENGTH " + std::to_string(lightPathLength) + "\n";
+            // pathtraceDefines += "#define EYEPATHLENGTH " + std::to_string(eyePathLength) + "\n";
         }
+        // scend
 
         if (scene->renderOptions.enableUniformLight)
             pathtraceDefines += "#define OPT_UNIFORM_LIGHT\n";
@@ -754,6 +759,8 @@ namespace GLSLPT
         glUniform1f(glGetUniformLocation(shaderObject, "envMapIntensity"), scene->renderOptions.envMapIntensity);
         glUniform1f(glGetUniformLocation(shaderObject, "envMapRot"), scene->renderOptions.envMapRot / 360.0f);
         glUniform1i(glGetUniformLocation(shaderObject, "maxDepth"), scene->renderOptions.maxDepth);
+        glUniform1i(glGetUniformLocation(shaderObject, "LIGHTPATHLENGTH"), scene->renderOptions.sc_BDPT_LIGHTPATH); // sc:
+        glUniform1i(glGetUniformLocation(shaderObject, "EYEPATHLENGTH"), scene->renderOptions.sc_BDPT_EYEPATH);     // sc:
         glUniform2f(glGetUniformLocation(shaderObject, "tileOffset"), (float)tile.x * invNumTiles.x, (float)tile.y * invNumTiles.y);
         glUniform3f(glGetUniformLocation(shaderObject, "uniformLightCol"), scene->renderOptions.uniformLightCol.x, scene->renderOptions.uniformLightCol.y, scene->renderOptions.uniformLightCol.z);
         glUniform1f(glGetUniformLocation(shaderObject, "roughnessMollificationAmt"), scene->renderOptions.roughnessMollificationAmt);
@@ -773,6 +780,8 @@ namespace GLSLPT
         glUniform1f(glGetUniformLocation(shaderObject, "envMapIntensity"), scene->renderOptions.envMapIntensity);
         glUniform1f(glGetUniformLocation(shaderObject, "envMapRot"), scene->renderOptions.envMapRot / 360.0f);
         glUniform1i(glGetUniformLocation(shaderObject, "maxDepth"), scene->dirty ? 2 : scene->renderOptions.maxDepth);
+        glUniform1i(glGetUniformLocation(shaderObject, "LIGHTPATHLENGTH"), scene->dirty ? 3 : scene->renderOptions.sc_BDPT_LIGHTPATH);
+        glUniform1i(glGetUniformLocation(shaderObject, "EYEPATHLENGTH"), scene->dirty ? 3 : scene->renderOptions.sc_BDPT_EYEPATH);
         glUniform3f(glGetUniformLocation(shaderObject, "camera.position"), scene->camera->position.x, scene->camera->position.y, scene->camera->position.z);
         glUniform3f(glGetUniformLocation(shaderObject, "uniformLightCol"), scene->renderOptions.uniformLightCol.x, scene->renderOptions.uniformLightCol.y, scene->renderOptions.uniformLightCol.z);
         glUniform1f(glGetUniformLocation(shaderObject, "roughnessMollificationAmt"), scene->renderOptions.roughnessMollificationAmt);

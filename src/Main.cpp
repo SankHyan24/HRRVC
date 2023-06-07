@@ -358,6 +358,9 @@ void MainLoop(void *arg)
             optionsChanged |= ImGui::SliderInt("Max Spp", &renderOptions.maxSpp, -1, 256);
             optionsChanged |= ImGui::SliderInt("Max Depth", &renderOptions.maxDepth, 1, 10);
 
+            optionsChanged |= ImGui::SliderInt("Max EyePath Depth", &renderOptions.sc_BDPT_EYEPATH, 1, 8);
+            optionsChanged |= ImGui::SliderInt("Max LightPath Depth", &renderOptions.sc_BDPT_LIGHTPATH, 1, 8);
+
             reloadShaders |= ImGui::Checkbox("Enable Russian Roulette", &renderOptions.enableRR);
             reloadShaders |= ImGui::SliderInt("Russian Roulette Depth", &renderOptions.RRDepth, 1, 10);
             reloadShaders |= ImGui::Checkbox("Enable Roughness Mollification", &renderOptions.enableRoughnessMollification);

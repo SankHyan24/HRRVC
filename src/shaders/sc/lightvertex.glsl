@@ -122,14 +122,13 @@ void sc_constructLightPath(in float seed ) {
     scatterSample.L = lightSample.direction;
     GetMaterial(state, r);
     vec3 throughput=lightSample.emission/lightSample.pdf;
-    
+    r.origin = state.fhp;
+    r.direction = lightSample.direction;
     for(int i=0; i<LIGHTPATHLENGTH; i++){
-        r.origin = state.fhp;
-        r.direction = scatterSample.L;
-
         lightVertices[i].avaliable = true;
         lightVertices[i].position = r.origin;
         lightVertices[i].normal = state.ffnormal;
+        lightVertices[i].direction = r.direction;
         lightVertices[i].radiance = throughput;  // emission is the radiance it received
         lightVertices[i].radiance = vec3(1.0);  // emission is the radiance it received
         lightVertices[i].mat = state.mat;
@@ -145,7 +144,8 @@ void sc_constructLightPath(in float seed ) {
         }
         // 4. shoot the ray
         if(i+1!=LIGHTPATHLENGTH){
-            Ray r = Ray(state.fhp, scatterSample.L);
+            r.origin = state.fhp;
+            r.direction = scatterSample.L;
             if(!ClosestHit(r, state, lightSample)){
                     lightVertices[i+1].avaliable = false;
                 break;
