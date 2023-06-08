@@ -150,9 +150,9 @@ vec4 traceEyePath( in Ray ray_) {
         }
 #endif
         radiance += DirectLight(r,state,true)*throughput;
-        if(light_index!=i){//sc
-            return vec4(vec3(100.0), 1.0);
-        }
+        // if(light_index!=j){//sc
+        //     return vec4(vec3(100.0), 1.0);
+        // }
 
         scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
         rd = scatterSample.L;
