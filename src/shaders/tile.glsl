@@ -37,8 +37,8 @@ in vec2 TexCoords;
 #include common/disney.glsl
 #include common/lambert.glsl
 #include common/pathtrace.glsl
-#include common/bidirectrace.glsl
 #include sc/lightvertex.glsl
+#include common/bidirectrace.glsl
 /*
     
 */

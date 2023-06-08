@@ -252,7 +252,10 @@ vec3 DirectLight(in Ray r, in State state, bool isSurface)
             {
                 float misWeight = PowerHeuristic(lightPdf, scatterSample.pdf);
                 if (misWeight > 0.0)
+                {
+                    recordLWeight(misWeight);//sc
                     Ld += misWeight * Li * scatterSample.f * envMapIntensity / lightPdf;
+                }
             }
         }
         #endif

@@ -37,7 +37,7 @@ in vec2 TexCoords;
 #include common/disney.glsl
 #include common/lambert.glsl
 #include common/pathtrace.glsl
-#include common/bidirectrace.glsl
+#include sc/lightvertex.glsl
 
 void main(void)
 {
@@ -67,7 +67,7 @@ void main(void)
     vec2 p = -1.0 + 2.0 * (gl_FragCoord.xy) / resolution.xy;
     p.x *= resolution.x/resolution.y;
     float seed = p.x + p.y * 3.43121412313;
-    constructLightPath( seed );
+    sc_constructLightPath( seed );
     // vec4 pixelColor; 
     
 

@@ -1,4 +1,13 @@
+struct LightPathNode {
+    bool avaliable;
+    vec3 radiance;
+    vec3 position;
+    vec3 normal;
+    vec3 direction;
 
+    Material mat;
+};
+LightPathNode lightVertices[10];
 vec3 SampleCosWeightedHemisphereDirection(out float pdf){
     float cdf = rand(); // theta in [0, pi/2]
     float theta = acos(1 - cdf);
