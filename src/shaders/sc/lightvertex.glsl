@@ -48,7 +48,7 @@ vec3 SampleSphereLightVertex(in Light light, inout LightSampleRec lightSample, o
     }
     vec3 fhp = state.fhp;
     lightSample.dist = length(fhp - lightSurfacePos);
-    lightSample.pdf = directpdf / (light.area*abs(dot(lightNormal, lightDirection)));
+    lightSample.pdf = lightSample.dist*lightSample.dist*directpdf / (light.area*abs(dot(lightNormal, lightDirection)));
     return lightSurfacePos;
 }
 
@@ -64,7 +64,9 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     
     vec3 T, B;
     Onb(lightNormal, T, B);
-    lightDirection = ToWorld(T, B, lightNormal, lightDirection);
+    // lightDirection = ToWorld(T, B, lightNormal, lightDirection);
+    // lightDirection = T*lightDirection.x + B*lightDirection.y + lightNormal*lightDirection.z;
+
     lightSample.normal = lightNormal;
     lightSample.emission = light.emission*float(numOfLights);
     lightSample.direction = normalize(lightDirection);
@@ -74,12 +76,13 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     LightSampleRec tmpLightSample;
     // if hit point is emitter, we should not count it
     hit = ClosestHit(r, state, tmpLightSample);
-    if(!hit){
-        return vec3(0.0);
+    float cosA = dot(lightNormal, lightDirection);
+    if(!hit||cosA<0.0){
+        return lightSurfacePos;
     }
     vec3 fhp = state.fhp;
     lightSample.dist = length(fhp - lightSurfacePos);
-    lightSample.pdf = directpdf / (light.area*abs(dot(lightNormal, lightDirection)));
+    lightSample.pdf = lightSample.dist*lightSample.dist*directpdf / (light.area*cosA);
     return lightSurfacePos;
 }
 
@@ -134,12 +137,12 @@ void sc_constructLightPath(in float seed ) {
 
     throughput /= lightSample.pdf;
     if(!hit||lightSample.pdf<0.0){
-        lightVertices[1].avaliable = false;
+    lightVertices[1].avaliable = false;
         return;
     }
     scatterSample.L = lightSample.direction;
     GetMaterial(state, r);
-    r.origin = state.fhp;
+    r.origin = state.fhp+scatterSample.L*EPS;
     r.direction = lightSample.direction;
     for(int i=1; i<LIGHTPATHLENGTH; i++){
         lightVertices[i].avaliable = true;
@@ -152,7 +155,7 @@ void sc_constructLightPath(in float seed ) {
         scatterSample.f = DisneySample(state, -r.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
         float dist = length(state.fhp - r.origin);
         if (scatterSample.pdf > 0.0)// todo
-            throughput *= scatterSample.f/ scatterSample.pdf;
+            throughput *= scatterSample.f/ (scatterSample.pdf*dist*dist);
         else
         {
             if(i+1!=LIGHTPATHLENGTH)
@@ -161,7 +164,7 @@ void sc_constructLightPath(in float seed ) {
         }
         // 4. shoot the ray
         if(i+1!=LIGHTPATHLENGTH){
-            r.origin = state.fhp;
+            r.origin = state.fhp + scatterSample.L * EPS;
             r.direction = scatterSample.L;
             if(!ClosestHit(r, state, lightSample)){
                     lightVertices[i+1].avaliable = false;

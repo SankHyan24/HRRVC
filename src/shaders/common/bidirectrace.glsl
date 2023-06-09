@@ -205,26 +205,28 @@ vec4 sc_traceEyePath( in Ray ray_) {
         }
 
         // if hit light, return light color
-        if(state.isEmitter){
-            float misWeight = 1.0;
-            if (j > 0){
-                misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
-            }
-            radiance +=misWeight* throughput * lightSample.emission;
-        }
-        
+        // if(state.isEmitter){
+        //     float misWeight = 1.0;
+        //     if (j > 0){
+        //         misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
+        //     }
+        //     radiance +=misWeight* throughput * lightSample.emission;
+        //     break;
+        // }
+
+
 
         GetMaterial(state, r);
         mat = state.mat;
-        curnormal = state.ffnormal;
+        curnormal = state.normal;
         // Bidirectional path tracing
 #ifdef OPT_BDPT
         {
             // Vertex connection
             State shadowState;
             Material eyeMat = mat;
-            vec3 eyePos = ro;
             vec3 eyeNormal = curnormal;
+            vec3 eyePos = state.fhp+eyeNormal*EPS;
             vec3 radianceBidirectional = vec3(0.0);
             int sampleCounter = 0;
 
@@ -234,8 +236,8 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 if(lightVertices[i].avaliable == false) break;
                 // if(if_pos_near(lightVertices[i].position, eyePos))
                 // {
-                //     radiance = lightVertices[i].radiance;
-                //     return vec4(radiance*10, 1.0);
+                //     float distance1 = length(lightVertices[i].position - eyePos);
+                //     radiance += lightVertices[i].radiance*throughput/(1.0+j)/(distance1*distance1);
                 // }
 
                 vec3 lightPos = lightVertices[i].position;
@@ -253,8 +255,9 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 float cosAtLight = dot(lightNormal, light2eyeDir);
                 float cosAtEye = dot(eyeNormal, eye2lightDir);
 
-                if(cosAtEye < 0.0 || cosAtLight < 0.0)
+                if(cosAtEye < 0.0 || cosAtLight < 0.0){
                      continue; // culling invisible light
+                    }
                 // shadow ray
                 bool shadowHit = true;
                 Ray shadowRay = Ray(eyePos, eye2lightDir);
@@ -274,7 +277,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 }
 
                 if(lightPdf < 0.0 || eyePdf < 0.0) continue;
-                vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF  * cosAtLight * cosAtEye /(lightPdf*eyePdf) ;
+                vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF  * cosAtLight * cosAtEye *invDist2/(lightPdf*eyePdf) ;
 
 #ifdef OPT_MIS_BDPT
                 float localWeight = eyePdf * lightPdf * cosAtEye * cosAtLight;
@@ -285,7 +288,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 if(connectionRadiance.x > 0.0 && connectionRadiance.y > 0.0 && connectionRadiance.z > 0.0)
                 {
                     sampleCounter++;
-                    radianceBidirectional+=connectionRadiance*misWeight;
+                    radianceBidirectional+=connectionRadiance*misWeight/100;
                 }
             }
             if(sampleCounter!=0)
