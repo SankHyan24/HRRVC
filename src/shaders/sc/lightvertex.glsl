@@ -8,11 +8,12 @@ struct LightPathNode {
     Material mat;
 };
 LightPathNode lightVertices[10];
+
 vec3 SampleCosWeightedHemisphereDirection(out float pdf){
     float cdf = rand(); // theta in [0, pi/2]
     float theta = acos(1 - cdf);
     float phi = rand() * 2 * PI;
-    pdf = sin(theta);
+    pdf = sin(theta)*INV_TWO_PI;
     return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 }
 
@@ -47,7 +48,7 @@ vec3 SampleSphereLightVertex(in Light light, inout LightSampleRec lightSample, o
     }
     vec3 fhp = state.fhp;
     lightSample.dist = length(fhp - lightSurfacePos);
-    lightSample.pdf = directpdf * lightSample.dist * lightSample.dist / (light.area*abs(dot(lightNormal, lightDirection)));
+    lightSample.pdf = directpdf / (light.area*abs(dot(lightNormal, lightDirection)));
     return lightSurfacePos;
 }
 
@@ -64,7 +65,6 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     vec3 T, B;
     Onb(lightNormal, T, B);
     lightDirection = ToWorld(T, B, lightNormal, lightDirection);
-
     lightSample.normal = lightNormal;
     lightSample.emission = light.emission*float(numOfLights);
     lightSample.direction = normalize(lightDirection);
@@ -79,7 +79,7 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     }
     vec3 fhp = state.fhp;
     lightSample.dist = length(fhp - lightSurfacePos);
-    lightSample.pdf = directpdf * lightSample.dist * lightSample.dist / (light.area*abs(dot(lightNormal, lightDirection)));
+    lightSample.pdf = directpdf / (light.area*abs(dot(lightNormal, lightDirection)));
     return lightSurfacePos;
 }
 
@@ -122,27 +122,35 @@ void sc_constructLightPath(in float seed ) {
     else if(type == 2)
         x0 = SampleDistantLightVertex(light, lightSample, hit, state);
 
+    
+    vec3 throughput=lightSample.emission;
+    // x0 is record as light vertex
+    Ray r = Ray(x0, lightSample.direction);
+    lightVertices[0].avaliable = true;
+    lightVertices[0].position = x0;
+    lightVertices[0].normal = lightSample.normal;
+    lightVertices[0].direction = lightSample.direction;
+    lightVertices[0].radiance = throughput;  // emission is the radiance it received
+
+    throughput /= lightSample.pdf;
     if(!hit||lightSample.pdf<0.0){
-        lightVertices[0].avaliable = false;
+        lightVertices[1].avaliable = false;
         return;
     }
-    // x0 is not record as light vertex
-    Ray r = Ray(x0, lightSample.direction);
     scatterSample.L = lightSample.direction;
     GetMaterial(state, r);
-    vec3 throughput=lightSample.emission/lightSample.pdf;
     r.origin = state.fhp;
     r.direction = lightSample.direction;
-    for(int i=0; i<LIGHTPATHLENGTH; i++){
+    for(int i=1; i<LIGHTPATHLENGTH; i++){
         lightVertices[i].avaliable = true;
         lightVertices[i].position = r.origin;
         lightVertices[i].normal = state.ffnormal;
         lightVertices[i].direction = r.direction;
         lightVertices[i].radiance = throughput;  // emission is the radiance it received
-        lightVertices[i].radiance = vec3(1.0);  // emission is the radiance it received
         lightVertices[i].mat = state.mat;
         // 3. sample the direction
         scatterSample.f = DisneySample(state, -r.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
+        float dist = length(state.fhp - r.origin);
         if (scatterSample.pdf > 0.0)// todo
             throughput *= scatterSample.f/ scatterSample.pdf;
         else
