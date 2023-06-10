@@ -189,7 +189,6 @@ vec4 sc_traceEyePath( in Ray ray_) {
 
 
     bool hit = false; 
-    bool surfaceScatter = false;// if it is from a surface scatter
     vec3 curnormal = rd;
     
     for( int j=0; j<EYEPATHLENGTH; ++j ) {
@@ -205,28 +204,33 @@ vec4 sc_traceEyePath( in Ray ray_) {
         }
 
         // if hit light, return light color
-        // if(state.isEmitter){
-        //     float misWeight = 1.0;
-        //     if (j > 0){
-        //         misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
-        //     }
-        //     radiance +=misWeight* throughput * lightSample.emission;
-        //     break;
-        // }
+        if(state.isEmitter){
+            float misWeight = 1.0;
+            if (j > 0){
+                misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
+            }
+            radiance +=misWeight* throughput * lightSample.emission;
+            break;
+        }
 
 
 
         GetMaterial(state, r);
         mat = state.mat;
-        curnormal = state.normal;
+        curnormal = state.ffnormal;
         // Bidirectional path tracing
+
+        scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
+        rd = scatterSample.L;
+        ro = state.fhp + normalize(rd)*EPS;
+        
 #ifdef OPT_BDPT
         {
             // Vertex connection
-            State shadowState;
             Material eyeMat = mat;
             vec3 eyeNormal = curnormal;
-            vec3 eyePos = state.fhp+eyeNormal*EPS;
+            // vec3 eyePos = state.fhp - normalize(rd)*EPS;
+            vec3 eyePos = ro;
             vec3 radianceBidirectional = vec3(0.0);
             int sampleCounter = 0;
 
@@ -236,12 +240,11 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 if(lightVertices[i].avaliable == false) break;
                 // if(if_pos_near(lightVertices[i].position, eyePos))
                 // {
-                //     float distance1 = length(lightVertices[i].position - eyePos);
-                //     radiance += lightVertices[i].radiance*throughput/(1.0+j)/(distance1*distance1);
+                //     radiance += lightVertices[i].radiance*10;
                 // }
 
                 vec3 lightPos = lightVertices[i].position;
-                vec3 lightNormal = lightVertices[i].normal;
+                vec3 lightNormal = normalize(lightVertices[i].normal);
                 vec3 lightRadiance = lightVertices[i].radiance;
                 vec3 lightDirection = lightVertices[i].direction;
                 Material lightMat = lightVertices[i].mat;
@@ -255,52 +258,55 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 float cosAtLight = dot(lightNormal, light2eyeDir);
                 float cosAtEye = dot(eyeNormal, eye2lightDir);
 
-                if(cosAtEye < 0.0 || cosAtLight < 0.0){
-                     continue; // culling invisible light
-                    }
-                // shadow ray
-                bool shadowHit = true;
-                Ray shadowRay = Ray(eyePos, eye2lightDir);
-                bool inShadow = AnyHit(shadowRay, eyelightDist- eps);
-                shadowHit = !inShadow;
+                if(cosAtEye < 0.0 || cosAtLight < 0.0) continue;
 
-                if(!shadowHit)continue;
+                // shadow ray
+                Ray shadowRay = Ray(eyePos, eye2lightDir);
+                if(AnyHit(shadowRay, eyelightDist- EPS))continue;
+
                 // calculate weight
+                float lightPdf, eyePdf, Dist2=(eyelightDist*eyelightDist);
+                State shadowState;
                 shadowState.mat = lightMat;
                 shadowState.eta = lightMat.ior;
-                float lightPdf, eyePdf, invDist2=1.0/(eyelightDist*eyelightDist);
                 vec3 lightBRDF = DisneyEval(shadowState, -lightDirection, lightNormal, light2eyeDir, lightPdf);
-                vec3 eyeBRDF = DisneyEval(state, -r.direction, curnormal, eye2lightDir, eyePdf);
+                vec3 eyeBRDF = DisneyEval(state, -r.direction, eyeNormal, eye2lightDir, eyePdf);
                 if(i==0){
-                    lightPdf = 1.0;
-                    lightBRDF = vec3(1.0);
+                    float lightArea = lightVertices[i].direction.x;
+                    lightPdf = Dist2;
+                    lightBRDF = vec3(1.0)*lightArea;
                 }
-
-                if(lightPdf < 0.0 || eyePdf < 0.0) continue;
-                vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF  * cosAtLight * cosAtEye *invDist2/(lightPdf*eyePdf) ;
-
+                // lightPdf+=EPS;
+                // eyePdf+=EPS;
+                if(lightPdf <= 0.0 ) continue; 
+                if( eyePdf <= 0.0) continue;
+                // if(eyeBRDF.x <= 0.0 || eyeBRDF.y <= 0.0 || eyeBRDF.z <= 0.0) continue; // lp=3没问题
+                // if(lightBRDF.x <= 0.0 || lightBRDF.y <= 0.0 || lightBRDF.z <= 0.0) continue; 
+                // vec3 connectionRadiance = throughput * lightRadiance ;
+                vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF * cosAtLight * cosAtEye  /(lightPdf*eyelightDist*eyelightDist) ;
+                
 #ifdef OPT_MIS_BDPT
-                float localWeight = eyePdf * lightPdf * cosAtEye * cosAtLight;
-                float misWeight = PowerHeuristic(localWeight, lightSample.pdf);
+                // float localWeight = eyePdf * lightPdf * cosAtEye * cosAtLight;
+                // float misWeight = PowerHeuristic(localWeight, lightSample.pdf);
 #else
                 float misWeight = 1.0/(2.0+i+j);
 #endif
                 if(connectionRadiance.x > 0.0 && connectionRadiance.y > 0.0 && connectionRadiance.z > 0.0)
                 {
                     sampleCounter++;
-                    radianceBidirectional+=connectionRadiance*misWeight/100;
+                    radianceBidirectional+=connectionRadiance*misWeight;
                 }
             }
             if(sampleCounter!=0)
-            radiance += radianceBidirectional ;
+            radiance += radianceBidirectional/sampleCounter; ;
         }
 #endif
-        // radiance += DirectLight(r,state,true)*throughput;
+        radiance += DirectLight(r,state,true)*throughput;
+        // scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
+        // rd = scatterSample.L;
+        // ro = state.fhp + normalize(rd)*EPS;
 
-
-        scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
-        rd = scatterSample.L;
-        ro = state.fhp + rd*EPS;
+        
         if (scatterSample.pdf > 0.0)
             throughput *= scatterSample.f / scatterSample.pdf;
         else break; 

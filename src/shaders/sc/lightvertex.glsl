@@ -3,7 +3,9 @@ struct LightPathNode {
     vec3 radiance;
     vec3 position;
     vec3 normal;
-    vec3 direction;
+    vec3 direction; 
+    // for the first node
+    // x is the area of the light
 
     Material mat;
 };
@@ -64,7 +66,7 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     
     vec3 T, B;
     Onb(lightNormal, T, B);
-    // lightDirection = ToWorld(T, B, lightNormal, lightDirection);
+    lightDirection = ToWorld(T, B, lightNormal, lightDirection);
     // lightDirection = T*lightDirection.x + B*lightDirection.y + lightNormal*lightDirection.z;
 
     lightSample.normal = lightNormal;
@@ -72,17 +74,47 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     lightSample.direction = normalize(lightDirection);
 
    // hit point
-    Ray r=Ray(lightSurfacePos, lightDirection);
+    Ray r=Ray(lightSurfacePos, lightSample.direction);
     LightSampleRec tmpLightSample;
     // if hit point is emitter, we should not count it
     hit = ClosestHit(r, state, tmpLightSample);
-    float cosA = dot(lightNormal, lightDirection);
-    if(!hit||cosA<0.0){
+    if(!hit){
+        return lightSurfacePos;
+    }
+    vec3 fhp = state.fhp; // new node
+    lightSample.dist = length(fhp - lightSurfacePos);
+    lightSample.pdf = lightSample.dist*lightSample.dist/ (light.area*abs(dot(lightNormal, lightDirection)));
+    return lightSurfacePos;
+}
+vec3 SampleRectLightVertexUniform(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
+{
+    float r1=rand();
+    float r2=rand();
+
+    vec3 lightSurfacePos = light.position + light.u * r1 + light.v * r2;
+    vec3 lightDirection = UniformSampleHemisphere(rand(), rand());
+    vec3 lightNormal = normalize(cross(light.u, light.v));
+    
+    vec3 T, B;
+    Onb(lightNormal, T, B);
+    lightDirection = ToWorld(T, B, lightNormal, lightDirection);
+
+    lightSample.normal = lightNormal;
+    lightSample.emission = light.emission*float(numOfLights);
+    lightSample.direction = normalize(lightDirection);
+
+   // hit point
+    Ray r=Ray(lightSurfacePos, lightSample.direction);
+    LightSampleRec tmpLightSample;
+    // if hit point is emitter, we should not count it
+    hit = ClosestHit(r, state, tmpLightSample);
+    if(!hit){
         return lightSurfacePos;
     }
     vec3 fhp = state.fhp;
     lightSample.dist = length(fhp - lightSurfacePos);
-    lightSample.pdf = lightSample.dist*lightSample.dist*directpdf / (light.area*cosA);
+    lightSample.pdf = lightSample.dist*lightSample.dist / (light.area*abs(dot(lightNormal,lightSample.direction)));
+    lightSample.dist = light.area;
     return lightSurfacePos;
 }
 
@@ -128,44 +160,44 @@ void sc_constructLightPath(in float seed ) {
     
     vec3 throughput=lightSample.emission;
     // x0 is record as light vertex
-    Ray r = Ray(x0, lightSample.direction);
+    Ray r = Ray(x0, normalize(lightSample.direction));
     lightVertices[0].avaliable = true;
     lightVertices[0].position = x0;
     lightVertices[0].normal = lightSample.normal;
-    lightVertices[0].direction = lightSample.direction;
+    lightVertices[0].direction.x = params.y; //
     lightVertices[0].radiance = throughput;  // emission is the radiance it received
 
-    throughput /= lightSample.pdf;
-    if(!hit||lightSample.pdf<0.0){
-    lightVertices[1].avaliable = false;
+
+    if(!hit||lightSample.pdf<=0.0){
+        lightVertices[1].avaliable = false;
         return;
     }
+    throughput /= lightSample.pdf;
     scatterSample.L = lightSample.direction;
-    GetMaterial(state, r);
-    r.origin = state.fhp+scatterSample.L*EPS;
-    r.direction = lightSample.direction;
+    
     for(int i=1; i<LIGHTPATHLENGTH; i++){
+        GetMaterial(state, r);
+        vec3 fdirection = r.direction;
+        scatterSample.f = DisneySample(state, -r.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
+        r.origin = state.fhp+normalize(scatterSample.L)*EPS;
+        r.direction = scatterSample.L;
         lightVertices[i].avaliable = true;
         lightVertices[i].position = r.origin;
         lightVertices[i].normal = state.ffnormal;
-        lightVertices[i].direction = r.direction;
+        lightVertices[i].direction = fdirection;
         lightVertices[i].radiance = throughput;  // emission is the radiance it received
         lightVertices[i].mat = state.mat;
-        // 3. sample the direction
-        scatterSample.f = DisneySample(state, -r.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
-        float dist = length(state.fhp - r.origin);
-        if (scatterSample.pdf > 0.0)// todo
-            throughput *= scatterSample.f/ (scatterSample.pdf*dist*dist);
+        vec3 dis = lightVertices[i].position - lightVertices[i-1].position;
+        float invDist2 = 1.0/length(dis);
+        if (scatterSample.pdf > 0.0)
+            throughput *= scatterSample.f*invDist2/ (scatterSample.pdf);
         else
         {
             if(i+1!=LIGHTPATHLENGTH)
                 lightVertices[i+1].avaliable = false;
             break;
         }
-        // 4. shoot the ray
         if(i+1!=LIGHTPATHLENGTH){
-            r.origin = state.fhp + scatterSample.L * EPS;
-            r.direction = scatterSample.L;
             if(!ClosestHit(r, state, lightSample)){
                     lightVertices[i+1].avaliable = false;
                 break;

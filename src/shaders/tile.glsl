@@ -82,7 +82,8 @@ void main(void)
     pixelColor = sc_traceEyePath(ray);
     // pixelColor = traceEyePath(ray);
 #else
-    pixelColor = PathTrace(ray);
+    pixelColor = sc_traceEyePath(ray);
+    // pixelColor = PathTrace(ray);
 #endif
 
     color = pixelColor + accumColor;
