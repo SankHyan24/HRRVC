@@ -128,6 +128,10 @@ namespace GLSLPT
         GLuint envMapTex;
         GLuint envMapCDFTex;
 
+        //wyd: gl light inout tex
+        GLuint lightInTex;
+        GLuint lightOutTex;
+
         // FBOs
         GLuint pathTraceFBO;
         GLuint pathTraceFBOLowRes;
@@ -140,6 +144,9 @@ namespace GLSLPT
         Program *pathTraceShaderLowRes;
         Program *outputShader;
         Program *tonemapShader;
+
+        //wyd: 
+        GLuint lightComputeShader;
 
         // Render textures
         GLuint pathTraceTextureLowRes;
@@ -170,6 +177,11 @@ namespace GLSLPT
 
         bool initialized;
 
+        // wyd: 
+        GLfloat *lightInPixels;
+        GLfloat *lightPathNodes; 
+
+
     public:
         Renderer(Scene *scene, const std::string &shadersDirectory);
         ~Renderer();
@@ -182,6 +194,7 @@ namespace GLSLPT
         float GetProgress();
         int GetSampleCount();
         void GetOutputBuffer(unsigned char **, int &w, int &h);
+
 
     private:
         void InitGPUDataBuffers();

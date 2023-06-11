@@ -27,6 +27,20 @@
 #include "ShaderIncludes.h"
 #include "Scene.h"
 #include "OpenImageDenoise/oidn.hpp"
+#include "assert.h"
+#include "cstring"
+
+char* checkLinkErrors(uint32_t prog, int len, char* buffer)
+{
+    GLint success;
+    glGetProgramiv(prog, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(prog, len, nullptr, buffer);
+        return buffer;
+    }
+    return nullptr;
+}
+
 
 namespace GLSLPT
 {
@@ -41,6 +55,10 @@ namespace GLSLPT
     Renderer::Renderer(Scene *scene, const std::string &shadersDirectory)
         : scene(scene), BVHBuffer(0), BVHTex(0), vertexIndicesBuffer(0), vertexIndicesTex(0), verticesBuffer(0), verticesTex(0), normalsBuffer(0), normalsTex(0), materialsTex(0), transformsTex(0), lightsTex(0), textureMapsArrayTex(0), envMapTex(0), envMapCDFTex(0), pathTraceTextureLowRes(0), pathTraceTexture(0), accumTexture(0), tileOutputTexture(), denoisedTexture(0), pathTraceFBO(0), pathTraceFBOLowRes(0), accumFBO(0), outputFBO(0), shadersDirectory(shadersDirectory), pathTraceShader(nullptr), pathTraceShaderLowRes(nullptr), outputShader(nullptr), tonemapShader(nullptr)
     {
+        //wyd
+        lightInTex = 0;
+        lightOutTex = 0;
+
         if (scene == nullptr)
         {
             printf("No Scene Found\n");
@@ -79,6 +97,9 @@ namespace GLSLPT
         glDeleteTextures(1, &tileOutputTexture[0]);
         glDeleteTextures(1, &tileOutputTexture[1]);
         glDeleteTextures(1, &denoisedTexture);
+        // wyd: 
+        glDeleteTextures(1, &lightInTex);
+        glDeleteTextures(1, &lightOutTex );
 
         // Delete buffers
         glDeleteBuffers(1, &BVHBuffer);
@@ -196,6 +217,26 @@ namespace GLSLPT
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 
+
+        // wyd: 
+        lightInPixels = (GLfloat *)malloc(100 * 3 * sizeof(GLfloat));
+        lightPathNodes = (GLfloat *)malloc(100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
+        memset(lightInPixels, 0, 100 * 3 * sizeof(GLfloat));
+        memset(lightPathNodes, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
+
+        glGenTextures(1, &lightInTex); 
+        glBindTexture(GL_TEXTURE_2D, lightInTex); 
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 100 ,1 ,0 , GL_RGB, GL_FLOAT, lightInPixels); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
+        glBindTexture(GL_TEXTURE_2D, 0); 
+
+
+        glGenTextures(1, &lightOutTex);
+        glBindTexture(GL_TEXTURE_2D, lightOutTex);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH * 3);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
         // Bind textures to texture slots as they will not change slots during the lifespan of the renderer
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_BUFFER, BVHTex);
@@ -217,6 +258,12 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, envMapTex);
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, envMapCDFTex);
+
+        //wyd: 
+        glActiveTexture(GL_TEXTURE11);
+        glBindTexture(GL_TEXTURE_2D, lightInTex);
+        glActiveTexture(GL_TEXTURE12);
+        glBindTexture(GL_TEXTURE_2D, lightOutTex);
     }
 
     void Renderer::ResizeRenderer()
@@ -270,18 +317,20 @@ namespace GLSLPT
         tile.x = -1;
         tile.y = numTiles.y - 1;
 
+        
+        
         // Create FBOs for path trace shader
-        glGenFramebuffers(1, &pathTraceFBO);
-        glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBO);
+        glGenFramebuffers(1, &pathTraceFBO); 
+        glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBO); 
 
         // Create Texture for FBO
-        glGenTextures(1, &pathTraceTexture);
-        glBindTexture(GL_TEXTURE_2D, pathTraceTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, tileWidth, tileHeight, 0, GL_RGBA, GL_FLOAT, 0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pathTraceTexture, 0);
+        glGenTextures(1, &pathTraceTexture); 
+        glBindTexture(GL_TEXTURE_2D, pathTraceTexture); 
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, tileWidth, tileHeight, 0, GL_RGBA, GL_FLOAT, 0); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
+        glBindTexture(GL_TEXTURE_2D, 0); 
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pathTraceTexture, 0); 
 
         // Create FBOs for low res preview shader
         glGenFramebuffers(1, &pathTraceFBOLowRes);
@@ -367,7 +416,9 @@ namespace GLSLPT
         ShaderInclude::ShaderSource pathTraceShaderLowResSrcObj = ShaderInclude::load(shadersDirectory + "preview.glsl");
         ShaderInclude::ShaderSource outputShaderSrcObj = ShaderInclude::load(shadersDirectory + "output.glsl");
         ShaderInclude::ShaderSource tonemapShaderSrcObj = ShaderInclude::load(shadersDirectory + "tonemap.glsl");
-
+        //wyd: 
+        ShaderInclude::ShaderSource lightShaderSrcObj = ShaderInclude::load(shadersDirectory + "lightcompute.glsl");
+        
         // Add preprocessor defines for conditional compilation
         std::string pathtraceDefines = "";
         std::string tonemapDefines = "";
@@ -472,6 +523,15 @@ namespace GLSLPT
         outputShader = LoadShaders(vertexShaderSrcObj, outputShaderSrcObj);
         tonemapShader = LoadShaders(vertexShaderSrcObj, tonemapShaderSrcObj);
 
+        // wyd: 
+        lightComputeShader = glCreateShader(GL_COMPUTE_SHADER);
+
+
+        const char* const srcs[] = { lightShaderSrcObj.src.c_str() };
+        // printf("srcs: %s\n", srcs[0]);
+        glShaderSource(lightComputeShader, 1, srcs, nullptr);
+        glCompileShader(lightComputeShader);
+
         // Setup shader uniforms
         GLuint shaderObject;
         pathTraceShader->Use();
@@ -540,6 +600,70 @@ namespace GLSLPT
             glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBOLowRes);
             glViewport(0, 0, windowSize.x * pixelRatio, windowSize.y * pixelRatio);
             quad->Draw(pathTraceShaderLowRes);
+
+            // wyd 
+            glBindTexture(GL_TEXTURE_2D, lightInTex);
+            /*
+                void glBindImageTexture(	GLuint unit,
+                                            GLuint texture,
+                                            GLint level,
+                                            GLboolean layered,
+                                            GLint layer,
+                                            GLenum access,
+                                            GLenum format);
+            */
+            uint32_t compProg = glCreateProgram();
+
+            
+            glAttachShader(compProg, lightComputeShader);
+            glLinkProgram(compProg);
+
+            glDetachShader(compProg, lightComputeShader);
+            glDeleteShader(lightComputeShader);
+            int len = 1005; 
+            char buffer[1005]; 
+            memset(buffer, 0, len);
+
+            checkLinkErrors(compProg, len, buffer);
+            if(strlen(buffer) > 0)
+            {
+                printf("link error: %s\n", buffer);
+                exit(1); 
+            }
+            
+            glUseProgram(compProg);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, lightInTex);
+            glBindImageTexture(0, lightOutTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB32F);
+            
+            // TODO:
+            glUniform1i(glGetUniformLocation(compProg, "u_inputTex"), 0); 
+            glUniform1i(glGetUniformLocation(compProg, "u_outImg"), 0); 
+            
+            glDispatchCompute(1,1,1); 
+
+            glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+
+            // wyd:
+            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3];
+            glBindTexture(GL_TEXTURE_2D, lightOutTex);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB32F, GL_BYTE, img);
+
+            for(int i = 0; i < 100; i++)
+            {
+                printf("light %d: ", i);
+                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH * 3; j++)
+                {
+                    printf("%.2f ", img[i * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 + j]);
+                }
+                printf("\n");
+            }
+            delete[] img;
+
+
+            glUseProgram(0);
 
             scene->instancesModified = false;
             scene->dirty = false;
