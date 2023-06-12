@@ -176,7 +176,7 @@ namespace GLSLPT
         bool denoised;
 
         bool initialized;
-
+        
         // wyd: 
         GLfloat *lightInPixels;
         GLfloat *lightPathNodes; 

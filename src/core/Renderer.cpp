@@ -219,22 +219,23 @@ namespace GLSLPT
 
 
         // wyd: 
-        lightInPixels = (GLfloat *)malloc(100 * 3 * sizeof(GLfloat));
-        lightPathNodes = (GLfloat *)malloc(100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
-        memset(lightInPixels, 0, 100 * 3 * sizeof(GLfloat));
-        memset(lightPathNodes, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
+        lightInPixels = new GLfloat[10000 * 3];
+        lightPathNodes = new GLfloat[100 * 100 * 4];
+        memset(lightInPixels, 0, 10000 * 3 * sizeof(GLfloat));
+        memset(lightPathNodes, 0, 100 * 100 * 4 * sizeof(GLfloat));
+
 
         glGenTextures(1, &lightInTex); 
         glBindTexture(GL_TEXTURE_2D, lightInTex); 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 100 ,1 ,0 , GL_RGB, GL_FLOAT, lightInPixels); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 100 ,100 ,0 , GL_RGB, GL_BYTE, lightInPixels); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
         glBindTexture(GL_TEXTURE_2D, 0); 
 
 
         glGenTextures(1, &lightOutTex);
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGB32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH * 3);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 100, 100);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Bind textures to texture slots as they will not change slots during the lifespan of the renderer
@@ -260,6 +261,7 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, envMapCDFTex);
 
         //wyd: 
+
         glActiveTexture(GL_TEXTURE11);
         glBindTexture(GL_TEXTURE_2D, lightInTex);
         glActiveTexture(GL_TEXTURE12);
@@ -525,12 +527,11 @@ namespace GLSLPT
 
         // wyd: 
         lightComputeShader = glCreateShader(GL_COMPUTE_SHADER);
-
-
         const char* const srcs[] = { lightShaderSrcObj.src.c_str() };
         // printf("srcs: %s\n", srcs[0]);
         glShaderSource(lightComputeShader, 1, srcs, nullptr);
         glCompileShader(lightComputeShader);
+
 
         // Setup shader uniforms
         GLuint shaderObject;
@@ -596,30 +597,15 @@ namespace GLSLPT
 
         if (scene->dirty)
         {
-            // Renders a low res preview if camera/instances are modified
-            glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBOLowRes);
-            glViewport(0, 0, windowSize.x * pixelRatio, windowSize.y * pixelRatio);
-            quad->Draw(pathTraceShaderLowRes);
-
             // wyd 
-            glBindTexture(GL_TEXTURE_2D, lightInTex);
-            /*
-                void glBindImageTexture(	GLuint unit,
-                                            GLuint texture,
-                                            GLint level,
-                                            GLboolean layered,
-                                            GLint layer,
-                                            GLenum access,
-                                            GLenum format);
-            */
             uint32_t compProg = glCreateProgram();
 
-            
             glAttachShader(compProg, lightComputeShader);
             glLinkProgram(compProg);
 
             glDetachShader(compProg, lightComputeShader);
             glDeleteShader(lightComputeShader);
+
             int len = 1005; 
             char buffer[1005]; 
             memset(buffer, 0, len);
@@ -632,38 +618,50 @@ namespace GLSLPT
             }
             
             glUseProgram(compProg);
-
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, lightInTex);
-            glBindImageTexture(0, lightOutTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGB32F);
+            glBindImageTexture(0, lightOutTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);      
             
-            // TODO:
             glUniform1i(glGetUniformLocation(compProg, "u_inputTex"), 0); 
             glUniform1i(glGetUniformLocation(compProg, "u_outImg"), 0); 
             
-            glDispatchCompute(1,1,1); 
-
+            glDispatchCompute((100+31)/32, (100+31)/32, 1);
+            
             glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
 
             // wyd:
-            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3];
+            GLfloat* img = new GLfloat[100 * 100 * 4];
+            // if not get data success, data remains
+            img[39996] = 0.1f;
+            img[39997] = 0.2f;
+            img[39998] = 0.3f;
+            img[39999] = 0.4f;
             glBindTexture(GL_TEXTURE_2D, lightOutTex);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB32F, GL_BYTE, img);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
 
-            for(int i = 0; i < 100; i++)
-            {
-                printf("light %d: ", i);
-                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH * 3; j++)
-                {
-                    printf("%.2f ", img[i * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 + j]);
+            for(int i = 0; i < 100;  i++){
+                for(int j = 0; j < 100; j++){
+                    printf("image[%d]: ", i * 100 + j); 
+                    printf("%f ", img[i * 100 * 4 + j * 4 + 0]);
+                    printf("%f ", img[i * 100 * 4 + j * 4 + 1]);
+                    printf("%f ", img[i * 100 * 4 + j * 4 + 2]);
+                    printf("%f ", img[i * 100 * 4 + j * 4 + 3]);
+                    printf("\n"); 
                 }
-                printf("\n");
-            }
+            }   
+
             delete[] img;
 
-
             glUseProgram(0);
+
+            // Renders a low res preview if camera/instances are modified
+            glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBOLowRes);
+            glViewport(0, 0, windowSize.x * pixelRatio, windowSize.y * pixelRatio);
+            quad->Draw(pathTraceShaderLowRes);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            
 
             scene->instancesModified = false;
             scene->dirty = false;
