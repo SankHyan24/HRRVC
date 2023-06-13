@@ -183,6 +183,7 @@ void sc_constructLightPath(in float seed ) {
         r.direction = scatterSample.L;
         lightVertices[i].avaliable = true;
         lightVertices[i].position = r.origin;
+
         lightVertices[i].normal = state.ffnormal;
         lightVertices[i].direction = fdirection;
         lightVertices[i].radiance = throughput;  // emission is the radiance it received

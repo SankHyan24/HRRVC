@@ -179,7 +179,7 @@ namespace GLSLPT
         
         // wyd: 
         GLfloat *lightInPixels;
-        GLfloat *lightPathNodes; 
+        float ***lightPathNodes; 
 
 
     public:
