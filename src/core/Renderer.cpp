@@ -9,7 +9,7 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
  *
@@ -60,6 +60,7 @@ namespace GLSLPT
         //wyd
         lightInTex = 0;
         lightOutTex = 0;
+        lightPathTex = 0; 
 
         if (scene == nullptr)
         {
@@ -102,6 +103,7 @@ namespace GLSLPT
         // wyd: 
         glDeleteTextures(1, &lightInTex);
         glDeleteTextures(1, &lightOutTex );
+        glDeleteTextures(1, &lightPathTex);
 
         // Delete buffers
         glDeleteBuffers(1, &BVHBuffer);
@@ -247,11 +249,21 @@ namespace GLSLPT
         for (int i = 0; i < 100; i++) {
             lightPathInfos[i] = new LightInfo[scene->renderOptions.sc_BDPT_LIGHTPATH];
         }
+        // wyd: 
 
-        // memset(lightInPixels, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
+        glGenBuffers(1, &lightPathBuffer);
+        glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
+        glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * 100 * scene->renderOptions.sc_BDPT_LIGHTPATH, &lightPathInfos[0][0], GL_STATIC_DRAW);
+        glGenTextures(1, &lightPathTex);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
 
-        // memset(lightPathNodes, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(float));
-        
+        // glGenTextures(1, &lightPathTex);
+        // glBindTexture(GL_TEXTURE_2D, lightPathTex);
+        // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, (sizeof(LightInfo) / sizeof(Vec3)) * 100 * scene->renderOptions.sc_BDPT_LIGHTPATH, 1, 0, GL_RGB, GL_FLOAT, &lightPathInfos[0][0]);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // glBindTexture(GL_TEXTURE_2D, 0);
 
 
         glGenTextures(1, &lightInTex); 
@@ -264,7 +276,7 @@ namespace GLSLPT
 
         glGenTextures(1, &lightOutTex);
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH * 6); // wyd update light
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH * 7); // wyd update light
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Bind textures to texture slots as they will not change slots during the lifespan of the renderer
@@ -295,6 +307,8 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, lightInTex);
         glActiveTexture(GL_TEXTURE12);
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
+        glActiveTexture(GL_TEXTURE13);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
     }
 
     void Renderer::ResizeRenderer()
@@ -588,6 +602,8 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "textureMapsArrayTex"), 8);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapTex"), 9);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
+        // wyd: 
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13); 
         pathTraceShader->StopUsing();
 
         pathTraceShaderLowRes->Use();
@@ -612,6 +628,8 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "textureMapsArrayTex"), 8);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapTex"), 9);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
+        // wyd: 
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13); 
         pathTraceShaderLowRes->StopUsing();
     }
 
@@ -666,6 +684,8 @@ namespace GLSLPT
             glUniform1i(glGetUniformLocation(compProg, "textureMapsArrayTex"), 8);
             glUniform1i(glGetUniformLocation(compProg, "envMapTex"), 9);
             glUniform1i(glGetUniformLocation(compProg, "envMapCDFTex"), 10);
+            //wyd: 
+            
 
             glUniform1i(glGetUniformLocation(compProg, "enableEnvMap"), scene->envMap == nullptr ? false : scene->renderOptions.enableEnvMap);
             glUniform1f(glGetUniformLocation(compProg, "envMapIntensity"), scene->renderOptions.envMapIntensity);
@@ -687,7 +707,7 @@ namespace GLSLPT
             glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
             }
             // wyd:
-            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 6]; // wyd: update light
+            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
             glBindTexture(GL_TEXTURE_2D, lightOutTex);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
@@ -741,31 +761,44 @@ namespace GLSLPT
                     lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 *100 + 0]; 
                     lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 *100 + 1]); 
                     lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 *100 + 2]); 
-
+                    lightPathInfos[i][j].texCoods =
+                    Vec2(
+                        img[i * 4 + (j + 18) * 4 *100 + 0],
+                        img[i * 4 + (j + 18) * 4 *100 + 1]
+                    );
+                    lightPathInfos[i][j].matroughness = img[i * 4 + (j + 18) * 4 *100 + 2];
                 }
             }   
+            
+
+
             // wyd: 
             // print to check lightPathNodes
-            // freopen("out.txt", "w", stdout);
-            // for(int i = 0; i < 100; i++){
-            //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
-            //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
-            //         printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
-            //         printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
-            //         printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
-            //         printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
-            //         printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
-            //         printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
-            //         printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
+            freopen("out.txt", "w", stdout);
+            for(int i = 0; i < 100; i++){
+                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
+                    printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
+                    lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
+                    printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
+                    lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
+                    printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
+                    lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
+                    printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
+                    lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
+                    printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
+                    lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
+                    printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
+                    printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
+                    printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
+                    printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
+                    lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
+                    printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
+                }
+            }
+            freopen("CON","w",stdout);
+            printf("size of BVHBuildNode * is %ld",sizeof( BVHBuildNode *));
+            printf("size of BVHBuildNode and LinearBVHNode is %ld, %ld ", sizeof(BVHBuildNode), sizeof(LinearBVHNode));
 
-            //     }
-            // }
-            // freopen("CON","w",stdout);
 
             // print image to check memory allocation
             // freopen("out.txt", "w", stdout);

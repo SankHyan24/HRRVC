@@ -28,11 +28,11 @@ struct BucketInfo
 };
 
 struct BVHBuildNode
-{
-    int i;
-    Bounds3<float> bounds;
-    BVHBuildNode *children[2];
-    int splitAxis, firstPrimOffset, nPrimitives;
+{   
+    int i; // 4
+    Bounds3<float> bounds; // 24
+    BVHBuildNode *children[2]; // 16
+    int splitAxis, firstPrimOffset, nPrimitives;// 12 
 
     void InitLeaf(int first, int n, const Bounds3<float> &b)
     {
@@ -55,11 +55,11 @@ struct BVHBuildNode
 };
 struct LinearBVHNode
 {
-    Bounds3<float> bounds;
+    Bounds3<float> bounds; //24 
     union
     {
         uint primitivesOffset;  // leaf
-        uint secondChildOffset; // interior
+        uint secondChildOffset; // interior 
     };
     uint16_t nPrimitives; // 0 -> interior node
     uint8_t axis;         // interior node: xyz
@@ -191,7 +191,7 @@ public:
             currentNodeIndex = nodesToVisit[toVisitOffset--];
         }
     }
-
+    
     bool IntersectPB(const Ray &ray, std::vector<Bounds3<float>> &ret_bounds, uint depth = 1, double scale = 1 + 2 * gamma(3)) const
     {
         if (!nodes)

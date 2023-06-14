@@ -8,6 +8,8 @@ struct LightPathNode {
     float eta; 
     int matID; 
     int avaliable;
+    vec2 texCoord; 
+    float matroughness;
     
     Material mat;
 };
@@ -21,6 +23,105 @@ vec3 SampleCosWeightedHemisphereDirection(out float pdf){
     pdf = sin(theta)*INV_TWO_PI;
     return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 }
+
+void GetLightPathNodeInfo(inout LightPathNode node, int index){
+    int ind = index * 7; 
+    vec3 param1 = vec3(texelFetch(lightPathTex, ind + 0).xyz);
+    vec3 param2 = vec3(texelFetch(lightPathTex, ind + 1).xyz);
+    vec3 param3 = vec3(texelFetch(lightPathTex, ind + 2).xyz);
+    vec3 param4 = vec3(texelFetch(lightPathTex, ind + 3).xyz);
+    vec3 param5 = vec3(texelFetch(lightPathTex, ind + 4).xyz);
+    vec3 param6 = vec3(texelFetch(lightPathTex, ind + 5).xyz);
+    vec3 param7 = vec3(texelFetch(lightPathTex, ind + 6).xyz);
+    node.position = param1.xyz;
+    node.radiance = param2.xyz;
+    node.normal = param3.xyz;
+    node.ffnormal = param4.xyz;
+    node.direction = param5.xyz;
+    node.eta = param6.x;
+    node.matID = int(param6.y);
+    node.avaliable = int(param6.z);
+    node.texCoord = param7.xy;
+    node.matroughness = param7.z;
+
+    int matind = node.matID * 8;
+    
+    vec4 matparam1 = texelFetch(materialsTex, ivec2(index + 0, 0), 0);
+    vec4 matparam2 = texelFetch(materialsTex, ivec2(index + 1, 0), 0);
+    vec4 matparam3 = texelFetch(materialsTex, ivec2(index + 2, 0), 0);
+    vec4 matparam4 = texelFetch(materialsTex, ivec2(index + 3, 0), 0);
+    vec4 matparam5 = texelFetch(materialsTex, ivec2(index + 4, 0), 0);
+    vec4 matparam6 = texelFetch(materialsTex, ivec2(index + 5, 0), 0);
+    vec4 matparam7 = texelFetch(materialsTex, ivec2(index + 6, 0), 0);
+    vec4 matparam8 = texelFetch(materialsTex, ivec2(index + 7, 0), 0);
+
+    node.mat.baseColor          = matparam1.rgb;
+    node.mat.anisotropic        = matparam1.w;
+
+    node.mat.emission           = matparam2.rgb;
+
+    node.mat.metallic           = matparam3.x;
+    node.mat.roughness          = max(matparam3.y, 0.001);
+    node.mat.subsurface         = matparam3.z;
+    node.mat.specularTint       = matparam3.w;
+
+    node.mat.sheen              = matparam4.x;
+    node.mat.sheenTint          = matparam4.y;
+    node.mat.clearcoat          = matparam4.z;
+    node.mat.clearcoatRoughness = mix(0.1, 0.001, matparam4.w); // Remapping from gloss to roughness
+
+    node.mat.specTrans          = matparam5.x;
+    node.mat.ior                = matparam5.y;
+    node.mat.medium.type        = int(matparam5.z);
+    node.mat.medium.density     = matparam5.w;
+
+    node.mat.medium.color       = matparam6.rgb;
+    node.mat.medium.anisotropy  = clamp(matparam6.w, -0.9, 0.9);
+
+    ivec4 texIDs           = ivec4(matparam7);
+
+    node.mat.opacity            = matparam8.x;
+    node.mat.alphaMode          = int(matparam8.y);
+    node.mat.alphaCutoff        = matparam8.z;
+
+//     if (texIDs.x >= 0)
+//     {
+//         vec4 col = texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.x));
+//         node.mat.baseColor.rgb *= pow(col.rgb, vec3(2.2));
+//         node.mat.opacity *= col.a;
+//     }
+
+//     // Metallic Roughness Map
+//     if (texIDs.y >= 0)
+//     {
+//         vec2 matRgh = texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.y)).bg;
+//         node.mat.metallic = matRgh.x;
+//         node.mat.roughness = max(matRgh.y * matRgh.y, 0.001);
+//     }
+
+//     // Normal Map
+//     if (texIDs.z >= 0)
+//     {
+//         vec3 texNormal = texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.z)).rgb;
+
+// #ifdef OPT_OPENGL_NORMALMAP
+//         texNormal.y = 1.0 - texNormal.y;
+// #endif
+//         texNormal = normalize(texNormal * 2.0 - 1.0);
+
+//     }
+
+// #ifdef OPT_ROUGHNESS_MOLLIFICATION
+//     if(state.depth > 0)
+//         node.mat.roughness = max(mix(0.0, state.mat.roughness, roughnessMollificationAmt), mat.roughness);
+// #endif
+
+//     // Emission Map
+//     if (texIDs.w >= 0)
+//         node.mat.emission = pow(texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.w)).rgb, vec3(2.2));
+
+}
+
 
 vec3 SampleSphereLightVertex(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
 {
@@ -171,7 +272,8 @@ void sc_constructLightPath(in float seed ) {
     lightVertices[0].eta = 1.0;
     lightVertices[0].avaliable = 1;
     lightVertices[0].ffnormal = lightSample.normal;
-
+    lightVertices[0].texCoord = vec2(0.0);
+    lightVertices[0].matroughness = 0.0;
 
     if(!hit||lightSample.pdf<=0.0){
         lightVertices[1].avaliable = 0;
@@ -196,6 +298,8 @@ void sc_constructLightPath(in float seed ) {
         lightVertices[i].matID = state.matID;
         lightVertices[i].eta = state.eta;
         lightVertices[i].ffnormal = state.ffnormal;
+        lightVertices[i].texCoord = state.texCoord;
+        lightVertices[i].matroughness = state.mat.roughness;
 
         vec3 dis = lightVertices[i].position - lightVertices[i-1].position;
         float invDist2 = 1.0/length(dis);

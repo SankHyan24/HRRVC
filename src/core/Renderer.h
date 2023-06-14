@@ -42,6 +42,9 @@ namespace GLSLPT
         float eta; 
         int matID; 
         int avaliable;
+        Vec2 texCoods; 
+        float matroughness; 
+
     };
 
     Program *LoadShaders(const ShaderInclude::ShaderSource &vertShaderObj, const ShaderInclude::ShaderSource &fragShaderObj);
@@ -143,6 +146,9 @@ namespace GLSLPT
         //wyd: gl light inout tex
         GLuint lightInTex;
         GLuint lightOutTex;
+        // lightpath tex and buffer object
+        GLuint lightPathBuffer;
+        GLuint lightPathTex;
 
         // FBOs
         GLuint pathTraceFBO;
