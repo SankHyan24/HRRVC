@@ -29,6 +29,8 @@
 #include "OpenImageDenoise/oidn.hpp"
 #include "assert.h"
 #include "cstring"
+#include "lightbvh.h"
+#include <chrono>
 
 char* checkLinkErrors(uint32_t prog, int len, char* buffer)
 {
@@ -129,10 +131,15 @@ namespace GLSLPT
             delete[] lightPathNodes[i];
         }
         delete[] lightPathNodes;
+
+        for (int i = 0;i < 100; i++) {
+            delete[] lightPathInfos[i];
+        }
     }
 
     void Renderer::InitGPUDataBuffers()
     {
+        {
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
         // Create buffer and texture for BVH
@@ -182,7 +189,7 @@ namespace GLSLPT
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glBindTexture(GL_TEXTURE_2D, 0);
-
+        }
         // Create texture for lights
         if (!scene->lights.empty())
         {
@@ -236,7 +243,12 @@ namespace GLSLPT
             }
         }
 
-        memset(lightInPixels, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
+        lightPathInfos = new LightInfo*[100];
+        for (int i = 0; i < 100; i++) {
+            lightPathInfos[i] = new LightInfo[scene->renderOptions.sc_BDPT_LIGHTPATH];
+        }
+
+        // memset(lightInPixels, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(GLfloat));
 
         // memset(lightPathNodes, 0, 100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3 * sizeof(float));
         
@@ -252,7 +264,7 @@ namespace GLSLPT
 
         glGenTextures(1, &lightOutTex);
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH * 6); // wyd update light
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Bind textures to texture slots as they will not change slots during the lifespan of the renderer
@@ -633,7 +645,7 @@ namespace GLSLPT
                 printf("link error: %s\n", buffer);
                 exit(1); 
             }
-            
+            {
             glUseProgram(compProg);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, lightInTex);
@@ -673,28 +685,112 @@ namespace GLSLPT
             glDispatchCompute((100+31)/32, (scene->renderOptions.sc_BDPT_LIGHTPATH+31)/32, 1);
             
             glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-
+            }
             // wyd:
-            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 4];
+            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 6]; // wyd: update light
             glBindTexture(GL_TEXTURE_2D, lightOutTex);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
+            
+            /*
+                struct LightInfo
+                {
+                    Vec3 radiance;
+                    Vec3 normal;
+                    Vec3 ffnormal;
+                    Vec3 direction; 
+                    float eta; 
+                    int matID; 
+                    int avaliable;
+                };
+            */
 
             for(int i = 0; i < 100;  i++){ 
                 for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
-                    lightPathNodes[i][j][0] = img[i * 4 + j * 4 *100 + 0];
-                    lightPathNodes[i][j][1] = img[i * 4 + j * 4 *100 + 1];
-                    lightPathNodes[i][j][2] = img[i * 4 + j * 4 *100 + 2];
+
+                    lightPathInfos[i][j].position = 
+                    Vec3(
+                        img[i * 4 + j * 4 *100 + 0],
+                        img[i * 4 + j * 4 *100 + 1],
+                        img[i * 4 + j * 4 *100 + 2] 
+                    );
+                    lightPathInfos[i][j].radiance = 
+                    Vec3(
+                        img[i * 4 + (j + 3) * 4 *100 + 0],
+                        img[i * 4 + (j + 3) * 4 *100 + 1],
+                        img[i * 4 + (j + 3) * 4 *100 + 2] 
+                    );
+                    lightPathInfos[i][j].normal = 
+                    Vec3(
+                        img[i * 4 + (j + 6) * 4 *100 + 0],
+                        img[i * 4 + (j + 6) * 4 *100 + 1],
+                        img[i * 4 + (j + 6) * 4 *100 + 2] 
+                    );
+                    lightPathInfos[i][j].ffnormal = 
+                    Vec3(
+                        img[i * 4 + (j + 9) * 4 *100 + 0],
+                        img[i * 4 + (j + 9) * 4 *100 + 1],
+                        img[i * 4 + (j + 9) * 4 *100 + 2] 
+                    );
+                    lightPathInfos[i][j].direction = 
+                    Vec3(
+                        img[i * 4 + (j + 12) * 4 *100 + 0],
+                        img[i * 4 + (j + 12) * 4 *100 + 1],
+                        img[i * 4 + (j + 12) * 4 *100 + 2] 
+                    );
+                    lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 *100 + 0]; 
+                    lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 *100 + 1]); 
+                    lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 *100 + 2]); 
+
                 }
             }   
-
             // wyd: 
             // print to check lightPathNodes
+            // freopen("out.txt", "w", stdout);
             // for(int i = 0; i < 100; i++){
             //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
-            //         printf("lightPathNodes[%d][%d] = %f %f %f\n", i, j, lightPathNodes[i][j][0], lightPathNodes[i][j][1], lightPathNodes[i][j][2]);
+            //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
+            //         printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
+            //         printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
+            //         printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
+            //         printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
+            //         printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
+            //         printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
+            //         printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
+
             //     }
             // }
+            // freopen("CON","w",stdout);
+
+            // print image to check memory allocation
+            // freopen("out.txt", "w", stdout);
+            // for(int i = 0; i < 100; i++){
+            //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH * 6; j++){
+            //         printf("img[%d][%d] = %f %f %f %f\n", i, j, img[i * 4 + j * 4 *100 + 0], img[i * 4 + j * 4 *100 + 1], img[i * 4 + j * 4 *100 + 2], img[i * 4 + j * 4 *100 + 3]);
+            //     }
+            // }
+
+
+            // construct bvh
+            std::vector<Point3f> pts; 
+            for(int i = 0; i < 100;  i++){
+                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
+                    pts.push_back(Point3f(lightPathInfos[i][j].position.x, 
+                                          lightPathInfos[i][j].position.y, 
+                                          lightPathInfos[i][j].position.z));
+                }
+            }
+            auto beforeTime = std::chrono::steady_clock::now();
+            BVH_ACC1 bvh(pts,0.1,0.2);
+            auto afterTime = std::chrono::steady_clock::now();
+            double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
+            printf("bvh construction time: %f ms\n", duration_millsecond);
+
 
             delete[] img;
 

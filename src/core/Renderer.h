@@ -32,6 +32,18 @@
 
 namespace GLSLPT
 {
+    struct LightInfo
+    {
+        Vec3 position; 
+        Vec3 radiance;
+        Vec3 normal;
+        Vec3 ffnormal;
+        Vec3 direction; 
+        float eta; 
+        int matID; 
+        int avaliable;
+    };
+
     Program *LoadShaders(const ShaderInclude::ShaderSource &vertShaderObj, const ShaderInclude::ShaderSource &fragShaderObj);
 
     struct RenderOptions
@@ -180,7 +192,7 @@ namespace GLSLPT
         // wyd: 
         GLfloat *lightInPixels;
         float ***lightPathNodes; 
-
+        LightInfo **lightPathInfos;
 
     public:
         Renderer(Scene *scene, const std::string &shadersDirectory);

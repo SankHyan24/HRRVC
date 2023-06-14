@@ -1,14 +1,17 @@
-struct LightPathNode {
-    bool avaliable;
-    vec3 radiance;
-    vec3 position;
-    vec3 normal;
-    vec3 direction; 
-    // for the first node
-    // x is the area of the light
 
+struct LightPathNode {
+    vec3 position;
+    vec3 radiance;
+    vec3 normal;
+    vec3 ffnormal;
+    vec3 direction; 
+    float eta; 
+    int matID; 
+    int avaliable;
+    
     Material mat;
 };
+
 LightPathNode lightVertices[10];
 
 vec3 SampleCosWeightedHemisphereDirection(out float pdf){
@@ -18,8 +21,6 @@ vec3 SampleCosWeightedHemisphereDirection(out float pdf){
     pdf = sin(theta)*INV_TWO_PI;
     return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 }
-
-
 
 vec3 SampleSphereLightVertex(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
 {
@@ -161,15 +162,19 @@ void sc_constructLightPath(in float seed ) {
     vec3 throughput=lightSample.emission;
     // x0 is record as light vertex
     Ray r = Ray(x0, normalize(lightSample.direction));
-    lightVertices[0].avaliable = true;
+    lightVertices[0].avaliable = 1;
     lightVertices[0].position = x0;
     lightVertices[0].normal = lightSample.normal;
     lightVertices[0].direction.x = params.y; //
     lightVertices[0].radiance = throughput;  // emission is the radiance it received
+    lightVertices[0].matID = -1;
+    lightVertices[0].eta = 1.0;
+    lightVertices[0].avaliable = 1;
+    lightVertices[0].ffnormal = lightSample.normal;
 
 
     if(!hit||lightSample.pdf<=0.0){
-        lightVertices[1].avaliable = false;
+        lightVertices[1].avaliable = 0;
         return;
     }
     throughput /= lightSample.pdf;
@@ -181,13 +186,17 @@ void sc_constructLightPath(in float seed ) {
         scatterSample.f = DisneySample(state, -r.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
         r.origin = state.fhp+normalize(scatterSample.L)*EPS;
         r.direction = scatterSample.L;
-        lightVertices[i].avaliable = true;
+        lightVertices[i].avaliable = 1;
         lightVertices[i].position = r.origin;
 
         lightVertices[i].normal = state.ffnormal;
         lightVertices[i].direction = fdirection;
         lightVertices[i].radiance = throughput;  // emission is the radiance it received
         lightVertices[i].mat = state.mat;
+        lightVertices[i].matID = state.matID;
+        lightVertices[i].eta = state.eta;
+        lightVertices[i].ffnormal = state.ffnormal;
+
         vec3 dis = lightVertices[i].position - lightVertices[i-1].position;
         float invDist2 = 1.0/length(dis);
         if (scatterSample.pdf > 0.0)
@@ -195,12 +204,12 @@ void sc_constructLightPath(in float seed ) {
         else
         {
             if(i+1!=LIGHTPATHLENGTH)
-                lightVertices[i+1].avaliable = false;
+                lightVertices[i+1].avaliable = 0;
             break;
         }
         if(i+1!=LIGHTPATHLENGTH){
             if(!ClosestHit(r, state, lightSample)){
-                    lightVertices[i+1].avaliable = false;
+                    lightVertices[i+1].avaliable = 0;
                 break;
             }
         }
