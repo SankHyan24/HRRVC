@@ -149,6 +149,9 @@ namespace GLSLPT
         // lightpath tex and buffer object
         GLuint lightPathBuffer;
         GLuint lightPathTex;
+        // lightpath bvh tex and buffer object
+        GLuint lightPathBVHBuffer;
+        GLuint lightPathBVHTex;
 
         // FBOs
         GLuint pathTraceFBO;

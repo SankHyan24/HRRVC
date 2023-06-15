@@ -61,6 +61,8 @@ namespace GLSLPT
         lightInTex = 0;
         lightOutTex = 0;
         lightPathTex = 0; 
+        lightPathBVHBuffer = 0;
+        lightPathBVHTex = 0;
 
         if (scene == nullptr)
         {
@@ -82,9 +84,9 @@ namespace GLSLPT
     Renderer::~Renderer()
     {
         delete quad;
-
         // Delete textures
         glDeleteTextures(1, &BVHTex);
+        glDeleteTextures(1, &lightPathBVHTex);
         glDeleteTextures(1, &vertexIndicesTex);
         glDeleteTextures(1, &verticesTex);
         glDeleteTextures(1, &normalsTex);
@@ -104,9 +106,10 @@ namespace GLSLPT
         glDeleteTextures(1, &lightInTex);
         glDeleteTextures(1, &lightOutTex );
         glDeleteTextures(1, &lightPathTex);
-
+        
         // Delete buffers
         glDeleteBuffers(1, &BVHBuffer);
+        glDeleteBuffers(1, &lightPathBVHBuffer);
         glDeleteBuffers(1, &vertexIndicesBuffer);
         glDeleteBuffers(1, &verticesBuffer);
         glDeleteBuffers(1, &normalsBuffer);
@@ -309,6 +312,8 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
         glActiveTexture(GL_TEXTURE13);
         glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+        glActiveTexture(GL_TEXTURE14);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
     }
 
     void Renderer::ResizeRenderer()
@@ -604,6 +609,7 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
         // wyd: 
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13); 
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHTex"), 14);
         pathTraceShader->StopUsing();
 
         pathTraceShaderLowRes->Use();
@@ -630,6 +636,7 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
         // wyd: 
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13); 
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHTex"), 14);
         pathTraceShaderLowRes->StopUsing();
     }
 
@@ -774,30 +781,28 @@ namespace GLSLPT
 
             // wyd: 
             // print to check lightPathNodes
-            freopen("out.txt", "w", stdout);
-            for(int i = 0; i < 100; i++){
-                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
-                    printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
-                    lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
-                    printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
-                    lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
-                    printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
-                    lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
-                    printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
-                    lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
-                    printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
-                    lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
-                    printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
-                    printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
-                    printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
-                    printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
-                    lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
-                    printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
-                }
-            }
-            freopen("CON","w",stdout);
-            printf("size of BVHBuildNode * is %ld",sizeof( BVHBuildNode *));
-            printf("size of BVHBuildNode and LinearBVHNode is %ld, %ld ", sizeof(BVHBuildNode), sizeof(LinearBVHNode));
+            // freopen("out.txt", "w", stdout);
+            // for(int i = 0; i < 100; i++){
+            //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
+            //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
+            //         printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
+            //         printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
+            //         printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
+            //         printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
+            //         lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
+            //         printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
+            //         printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
+            //         printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
+            //         printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
+            //         lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
+            //         printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
+            //     }
+            // }
+            // freopen("CON","w",stdout);
 
 
             // print image to check memory allocation
@@ -819,11 +824,19 @@ namespace GLSLPT
                 }
             }
             auto beforeTime = std::chrono::steady_clock::now();
-            BVH_ACC1 bvh(pts,0.1,0.2);
+
+            BVH_ACC1 bvh_lightpath(pts,0.1,0.2);
             auto afterTime = std::chrono::steady_clock::now();
             double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
             printf("bvh construction time: %f ms\n", duration_millsecond);
+            LinearBVHNode* bvh_nodes = bvh_lightpath.nodes; 
 
+            glGenBuffers(1, &lightPathBVHBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(LinearBVHNode) * bvh_lightpath.totalNodes, &bvh_nodes[0], GL_STATIC_DRAW);
+            glGenTextures(1, &lightPathBVHTex);
+            glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBVHBuffer);
 
             delete[] img;
 

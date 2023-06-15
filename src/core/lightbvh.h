@@ -29,10 +29,10 @@ struct BucketInfo
 
 struct BVHBuildNode
 {   
-    int i; // 4
-    Bounds3<float> bounds; // 24
-    BVHBuildNode *children[2]; // 16
-    int splitAxis, firstPrimOffset, nPrimitives;// 12 
+    int i; 
+    Bounds3<float> bounds; 
+    BVHBuildNode *children[2]; 
+    int splitAxis, firstPrimOffset, nPrimitives;
 
     void InitLeaf(int first, int n, const Bounds3<float> &b)
     {
@@ -55,15 +55,15 @@ struct BVHBuildNode
 };
 struct LinearBVHNode
 {
-    Bounds3<float> bounds; //24 
+    Bounds3<float> bounds; 
     union
     {
         uint primitivesOffset;  // leaf
         uint secondChildOffset; // interior 
     };
-    uint16_t nPrimitives; // 0 -> interior node
-    uint8_t axis;         // interior node: xyz
-    uint8_t pad[1];
+    uint32_t nPrimitives; // 0 -> interior node
+    uint32_t axis;         // interior node: xyz
+    
 };
 
 class BVH_ACC1
@@ -107,7 +107,8 @@ public:
         {
             root = recursiveBuild(area, 0, pointInfo.size(), pointInfo, &totalNodes);
         }
-        nodes = AllocAligned<LinearBVHNode>(totalNodes);
+        nodes = new LinearBVHNode[totalNodes];
+        //  AllocAligned<LinearBVHNode>(totalNodes);
         flattenBVHTree(root, &offset);
         char output[1024];
         sprintf(output, "BVH created with %u nodes for %lu "
@@ -122,7 +123,8 @@ public:
 
     ~BVH_ACC1()
     {
-        FreeAligned(nodes);
+        std::free(nodes);
+        // FreeAligned(nodes);
     };
 
     void IntersectP(const Ray &ray, std::vector<uint> &ret_nodes, uint depth = 1, double scale = 1 + 2 * gamma(3))
@@ -338,9 +340,9 @@ public:
 
 private:
     uint flattenBVHTree(BVHBuildNode *node, uint *offset)
-    {
+    {   
         LinearBVHNode *linearNode = &nodes[*offset];
-        linearNode->bounds = node->bounds;
+        linearNode->bounds = node->bounds; 
         int myOffset = (*offset)++;
         if (node->nPrimitives > 0)
         {

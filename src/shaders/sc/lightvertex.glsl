@@ -42,7 +42,8 @@ void GetLightPathNodeInfo(inout LightPathNode node, int index){
     node.matID = int(param6.y);
     node.avaliable = int(param6.z);
     node.texCoord = param7.xy;
-    node.matroughness = param7.z;
+    float matroughness = param7.z;
+
 
     int matind = node.matID * 8;
     
@@ -84,41 +85,41 @@ void GetLightPathNodeInfo(inout LightPathNode node, int index){
     node.mat.alphaMode          = int(matparam8.y);
     node.mat.alphaCutoff        = matparam8.z;
 
-//     if (texIDs.x >= 0)
-//     {
-//         vec4 col = texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.x));
-//         node.mat.baseColor.rgb *= pow(col.rgb, vec3(2.2));
-//         node.mat.opacity *= col.a;
-//     }
+    if (texIDs.x >= 0)
+    {
+        vec4 col = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.x));
+        node.mat.baseColor.rgb *= pow(col.rgb, vec3(2.2));
+        node.mat.opacity *= col.a;
+    }
 
-//     // Metallic Roughness Map
-//     if (texIDs.y >= 0)
-//     {
-//         vec2 matRgh = texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.y)).bg;
-//         node.mat.metallic = matRgh.x;
-//         node.mat.roughness = max(matRgh.y * matRgh.y, 0.001);
-//     }
+    // Metallic Roughness Map
+    if (texIDs.y >= 0)
+    {
+        vec2 matRgh = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.y)).bg;
+        node.mat.metallic = matRgh.x;
+        node.mat.roughness = max(matRgh.y * matRgh.y, 0.001);
+    }
 
-//     // Normal Map
-//     if (texIDs.z >= 0)
-//     {
-//         vec3 texNormal = texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.z)).rgb;
+    // Normal Map
+    if (texIDs.z >= 0)
+    {
+        vec3 texNormal = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.z)).rgb;
 
-// #ifdef OPT_OPENGL_NORMALMAP
-//         texNormal.y = 1.0 - texNormal.y;
-// #endif
-//         texNormal = normalize(texNormal * 2.0 - 1.0);
+#ifdef OPT_OPENGL_NORMALMAP
+        texNormal.y = 1.0 - texNormal.y;
+#endif
+        texNormal = normalize(texNormal * 2.0 - 1.0);
 
-//     }
+    }
 
-// #ifdef OPT_ROUGHNESS_MOLLIFICATION
-//     if(state.depth > 0)
-//         node.mat.roughness = max(mix(0.0, state.mat.roughness, roughnessMollificationAmt), mat.roughness);
-// #endif
+#ifdef OPT_ROUGHNESS_MOLLIFICATION
+    if(state.depth > 0)
+        node.mat.roughness = max(mix(0.0, matroughness, roughnessMollificationAmt), node.mat.roughness);
+#endif
 
-//     // Emission Map
-//     if (texIDs.w >= 0)
-//         node.mat.emission = pow(texture(textureMapsArrayTex, vec3(state.texCoord, texIDs.w)).rgb, vec3(2.2));
+    // Emission Map
+    if (texIDs.w >= 0)
+        node.mat.emission = pow(texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.w)).rgb, vec3(2.2));
 
 }
 

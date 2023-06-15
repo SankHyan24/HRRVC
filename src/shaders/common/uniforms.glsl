@@ -35,6 +35,7 @@ uniform samplerBuffer verticesTex;
 uniform samplerBuffer normalsTex;
 // wyd: 
 uniform samplerBuffer lightPathTex; 
+uniform samplerBuffer lightPathBVHTex; 
 
 uniform sampler2D materialsTex;
 uniform sampler2D transformsTex;
