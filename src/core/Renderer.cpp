@@ -707,18 +707,16 @@ namespace GLSLPT
 
         if (scene->dirty)
         {
-            {
-                sc_computeShader->Use();
-                glDispatchCompute((lpnum + 31) / 32, (scene->renderOptions.sc_BDPT_LIGHTPATH + 31) / 32, 1);
+            sc_computeShader->Use();
+            glDispatchCompute((lpnum + 31) / 32, (scene->renderOptions.sc_BDPT_LIGHTPATH + 31) / 32, 1);
 
-                glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-                GLfloat *img = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
-                glBindTexture(GL_TEXTURE_2D, lightOutTex);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
+            glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+            GLfloat *img = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
+            glBindTexture(GL_TEXTURE_2D, lightOutTex);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
 
-                sc_computeShader->StopUsing();
-            }
+            sc_computeShader->StopUsing();
 
             /*
                 struct LightInfo
