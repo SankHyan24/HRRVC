@@ -38,6 +38,8 @@
 #include <pcl/visualization/pcl_visualizer.h>
 // #include <boost/thread/thread.hpp>
 
+#define lpnum 2000
+
 char* checkLinkErrors(uint32_t prog, int len, char* buffer)
 {
     GLint success;
@@ -135,7 +137,7 @@ namespace GLSLPT
         // Delete denoiser data
         delete[] denoiserInputFramePtr;
         delete[] frameOutputPtr;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < lpnum; i++) {
             for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++) {
                 delete[] lightPathNodes[i][j];
             }
@@ -143,7 +145,7 @@ namespace GLSLPT
         }
         delete[] lightPathNodes;
 
-        for (int i = 0;i < 100; i++) {
+        for (int i = 0;i < lpnum; i++) {
             delete[] lightPathInfos[i];
         }
     }
@@ -244,32 +246,32 @@ namespace GLSLPT
 
         
         // wyd: 
-        lightInPixels = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 3];
+        lightInPixels = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 3];
 
-        lightPathNodes = new float**[100];
-        for (int i = 0; i < 100; i++) {
+        lightPathNodes = new float**[lpnum];
+        for (int i = 0; i < lpnum; i++) {
             lightPathNodes[i] = new float*[scene->renderOptions.sc_BDPT_LIGHTPATH];
             for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++) {
                 lightPathNodes[i][j] = new float[3];
             }
         }
 
-        lightPathInfos = new LightInfo*[100];
-        for (int i = 0; i < 100; i++) {
+        lightPathInfos = new LightInfo*[lpnum];
+        for (int i = 0; i < lpnum; i++) {
             lightPathInfos[i] = new LightInfo[scene->renderOptions.sc_BDPT_LIGHTPATH];
         }
         // wyd: 
 
         glGenBuffers(1, &lightPathBuffer);
         glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * 100 * scene->renderOptions.sc_BDPT_LIGHTPATH, &lightPathInfos[0][0], GL_STATIC_DRAW);
+        glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH, &lightPathInfos[0][0], GL_STATIC_DRAW);
         glGenTextures(1, &lightPathTex);
         glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
         glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
 
         // glGenTextures(1, &lightPathTex);
         // glBindTexture(GL_TEXTURE_2D, lightPathTex);
-        // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, (sizeof(LightInfo) / sizeof(Vec3)) * 100 * scene->renderOptions.sc_BDPT_LIGHTPATH, 1, 0, GL_RGB, GL_FLOAT, &lightPathInfos[0][0]);
+        // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, (sizeof(LightInfo) / sizeof(Vec3)) * lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH, 1, 0, GL_RGB, GL_FLOAT, &lightPathInfos[0][0]);
         // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         // glBindTexture(GL_TEXTURE_2D, 0);
@@ -277,7 +279,7 @@ namespace GLSLPT
 
         glGenTextures(1, &lightInTex); 
         glBindTexture(GL_TEXTURE_2D, lightInTex); 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 100 ,scene->renderOptions.sc_BDPT_LIGHTPATH ,0 , GL_RGB, GL_BYTE, lightInPixels); 
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum ,scene->renderOptions.sc_BDPT_LIGHTPATH ,0 , GL_RGB, GL_BYTE, lightInPixels); 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
         glBindTexture(GL_TEXTURE_2D, 0); 
@@ -285,7 +287,7 @@ namespace GLSLPT
 
         glGenTextures(1, &lightOutTex);
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 100, scene->renderOptions.sc_BDPT_LIGHTPATH * 7); // wyd update light
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, lpnum, scene->renderOptions.sc_BDPT_LIGHTPATH * 7); // wyd update light
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Bind textures to texture slots as they will not change slots during the lifespan of the renderer
@@ -699,7 +701,6 @@ namespace GLSLPT
             glUniform1i(glGetUniformLocation(compProg, "envMapCDFTex"), 10);
             //wyd: 
             
-
             glUniform1i(glGetUniformLocation(compProg, "enableEnvMap"), scene->envMap == nullptr ? false : scene->renderOptions.enableEnvMap);
             glUniform1f(glGetUniformLocation(compProg, "envMapIntensity"), scene->renderOptions.envMapIntensity);
             glUniform1f(glGetUniformLocation(compProg, "envMapRot"), scene->renderOptions.envMapRot / 360.0f);
@@ -715,12 +716,12 @@ namespace GLSLPT
             glUniform1i(glGetUniformLocation(compProg, "u_outImg"), 0); 
 
             
-            glDispatchCompute((100+31)/32, (scene->renderOptions.sc_BDPT_LIGHTPATH+31)/32, 1);
+            glDispatchCompute((lpnum+31)/32, (scene->renderOptions.sc_BDPT_LIGHTPATH+31)/32, 1);
             
             glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
             }
             // wyd:
-            GLfloat* img = new GLfloat[100 * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
+            GLfloat* img = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
             glBindTexture(GL_TEXTURE_2D, lightOutTex);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
@@ -738,48 +739,48 @@ namespace GLSLPT
                 };
             */
 
-            for(int i = 0; i < 100;  i++){ 
+            for(int i = 0; i < lpnum;  i++){ 
                 for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
 
                     lightPathInfos[i][j].position = 
                     Vec3(
-                        img[i * 4 + j * 4 *100 + 0],
-                        img[i * 4 + j * 4 *100 + 1],
-                        img[i * 4 + j * 4 *100 + 2] 
+                        img[i * 4 + j * 4 *lpnum + 0],
+                        img[i * 4 + j * 4 *lpnum + 1],
+                        img[i * 4 + j * 4 *lpnum + 2] 
                     );
                     lightPathInfos[i][j].radiance = 
                     Vec3(
-                        img[i * 4 + (j + 3) * 4 *100 + 0],
-                        img[i * 4 + (j + 3) * 4 *100 + 1],
-                        img[i * 4 + (j + 3) * 4 *100 + 2] 
+                        img[i * 4 + (j + 3) * 4 *lpnum + 0],
+                        img[i * 4 + (j + 3) * 4 *lpnum + 1],
+                        img[i * 4 + (j + 3) * 4 *lpnum + 2] 
                     );
                     lightPathInfos[i][j].normal = 
                     Vec3(
-                        img[i * 4 + (j + 6) * 4 *100 + 0],
-                        img[i * 4 + (j + 6) * 4 *100 + 1],
-                        img[i * 4 + (j + 6) * 4 *100 + 2] 
+                        img[i * 4 + (j + 6) * 4 *lpnum + 0],
+                        img[i * 4 + (j + 6) * 4 *lpnum + 1],
+                        img[i * 4 + (j + 6) * 4 *lpnum + 2] 
                     );
                     lightPathInfos[i][j].ffnormal = 
                     Vec3(
-                        img[i * 4 + (j + 9) * 4 *100 + 0],
-                        img[i * 4 + (j + 9) * 4 *100 + 1],
-                        img[i * 4 + (j + 9) * 4 *100 + 2] 
+                        img[i * 4 + (j + 9) * 4 *lpnum + 0],
+                        img[i * 4 + (j + 9) * 4 *lpnum + 1],
+                        img[i * 4 + (j + 9) * 4 *lpnum + 2] 
                     );
                     lightPathInfos[i][j].direction = 
                     Vec3(
-                        img[i * 4 + (j + 12) * 4 *100 + 0],
-                        img[i * 4 + (j + 12) * 4 *100 + 1],
-                        img[i * 4 + (j + 12) * 4 *100 + 2] 
+                        img[i * 4 + (j + 12) * 4 *lpnum + 0],
+                        img[i * 4 + (j + 12) * 4 *lpnum + 1],
+                        img[i * 4 + (j + 12) * 4 *lpnum + 2] 
                     );
-                    lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 *100 + 0]; 
-                    lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 *100 + 1]); 
-                    lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 *100 + 2]); 
+                    lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 *lpnum + 0]; 
+                    lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 *lpnum + 1]); 
+                    lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 *lpnum + 2]); 
                     lightPathInfos[i][j].texCoods =
                     Vec2(
-                        img[i * 4 + (j + 18) * 4 *100 + 0],
-                        img[i * 4 + (j + 18) * 4 *100 + 1]
+                        img[i * 4 + (j + 18) * 4 *lpnum + 0],
+                        img[i * 4 + (j + 18) * 4 *lpnum + 1]
                     );
-                    lightPathInfos[i][j].matroughness = img[i * 4 + (j + 18) * 4 *100 + 2];
+                    lightPathInfos[i][j].matroughness = img[i * 4 + (j + 18) * 4 *lpnum + 2];
                 }
             }   
             
@@ -788,7 +789,7 @@ namespace GLSLPT
             // wyd: 
             // print to check lightPathNodes
             // freopen("out.txt", "w", stdout);
-            // for(int i = 0; i < 100; i++){
+            // for(int i = 0; i < lpnum; i++){
             //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
             //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
             //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
@@ -813,16 +814,16 @@ namespace GLSLPT
 
             // print image to check memory allocation
             // freopen("out.txt", "w", stdout);
-            // for(int i = 0; i < 100; i++){
+            // for(int i = 0; i < lpnum; i++){
             //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH * 6; j++){
-            //         printf("img[%d][%d] = %f %f %f %f\n", i, j, img[i * 4 + j * 4 *100 + 0], img[i * 4 + j * 4 *100 + 1], img[i * 4 + j * 4 *100 + 2], img[i * 4 + j * 4 *100 + 3]);
+            //         printf("img[%d][%d] = %f %f %f %f\n", i, j, img[i * 4 + j * 4 *lpnum + 0], img[i * 4 + j * 4 *lpnum + 1], img[i * 4 + j * 4 *lpnum + 2], img[i * 4 + j * 4 *lpnum + 3]);
             //     }
             // }
 
 
             // construct bvh
             std::vector<Point3f> pts; 
-            for(int i = 0; i < 100;  i++){
+            for(int i = 0; i < lpnum;  i++){
                 for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
                     pts.push_back(Point3f(lightPathInfos[i][j].position.x, 
                                           lightPathInfos[i][j].position.y, 
@@ -839,34 +840,34 @@ namespace GLSLPT
 
             // point cloud visualization
             
-            pcl::PointCloud<pcl::PointXYZ> cloud;
-            cloud.width = 100 * scene->renderOptions.sc_BDPT_LIGHTPATH;
-            cloud.height = 1;
-            cloud.is_dense = false;
-            cloud.points.resize(cloud.width * cloud.height);
-            for (size_t i = 0; i < cloud.points.size(); ++i)
-            {
-                cloud.points[i].x = pts[i].x;
-                cloud.points[i].y = pts[i].y;
-                cloud.points[i].z = pts[i].z;
-            }
+            // pcl::PointCloud<pcl::PointXYZ> cloud;
+            // cloud.width = lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH;
+            // cloud.height = 1;
+            // cloud.is_dense = false;
+            // cloud.points.resize(cloud.width * cloud.height);
+            // for (size_t i = 0; i < cloud.points.size(); ++i)
+            // {
+            //     cloud.points[i].x = pts[i].x;
+            //     cloud.points[i].y = pts[i].y;
+            //     cloud.points[i].z = pts[i].z;
+            // }
 
-            pcl::io::savePCDFileASCII("selfgen.pcd", cloud);
+            // pcl::io::savePCDFileASCII("selfgen.pcd", cloud);
 
 
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
+            // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
         
-            if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1)//*打开点云文件
-            {
-                PCL_ERROR("Couldn't read file test_pcd.pcd\n");
-            }
+            // if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1)//*打开点云文件
+            // {
+            //     PCL_ERROR("Couldn't read file test_pcd.pcd\n");
+            // }
 
-            pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("viewer"));
-            viewer->addCoordinateSystem(1); 
+            // pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("viewer"));
+            // viewer->addCoordinateSystem(1); 
 
-            viewer->addPointCloud(cloud2);
+            // viewer->addPointCloud(cloud2);
 
-            viewer->spin();
+            // viewer->spin();
             
 
             auto beforeTime = std::chrono::steady_clock::now();
