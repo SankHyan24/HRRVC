@@ -80,7 +80,7 @@ vec4 traceEyePath( in Ray ray_) {
             radiance +=misWeight* throughput * lightSample.emission;
         }
         
-
+         // 2794
         GetMaterial(state, r);
         mat = state.mat;
         curnormal = state.ffnormal;
@@ -95,7 +95,7 @@ vec4 traceEyePath( in Ray ray_) {
             vec3 radianceBidirectional = vec3(0.0);
             int sampleCounter = 0;
             for( int i=1; i<LIGHTPATHLENGTH; ++i ) {
-                if(lightVertices[i].avaliable == false) break;
+                if(lightVertices[i].avaliable == 0) break;
                 // if(if_pos_near(lightVertices[i].position, eyePos))
                 // {
                 //     radiance = lightVertices[i].radiance;
@@ -186,7 +186,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
     LightSampleRec lightSample;
     ScatterSampleRec scatterSample;
     Light light;
-
+    
 
     bool hit = false; 
     vec3 curnormal = rd;
@@ -234,10 +234,8 @@ vec4 sc_traceEyePath( in Ray ray_) {
             vec3 radianceBidirectional = vec3(0.0);
             int sampleCounter = 0;
 
-
-
             for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
-                if(lightVertices[i].avaliable == false) break;
+                if(lightVertices[i].avaliable == 0) break;
                 // if(if_pos_near(lightVertices[i].position, eyePos))
                 // {
                 //     radiance += lightVertices[i].radiance*10;

@@ -218,22 +218,7 @@ public:
                     break;
                 }
             }
-            else        // if (end - start <= 20)
-        // {
-        //     bounds.pMax.x += _voxel_length;
-        //     bounds.pMax.y += _voxel_length;
-        //     bounds.pMax.z += _voxel_length;
-        //     bounds.pMin.x -= _voxel_length;
-        //     bounds.pMin.y -= _voxel_length;
-        //     bounds.pMin.z -= _voxel_length;
-        //     uint firstposition = orderdata.size();
-        //     for (uint i = start; i < end; i++)
-        //     {
-        //         orderdata.push_back(info[i]);
-        //     }
-        //     node->InitLeaf(firstposition, end - start, bounds);
-        //     return node;
-        // }
+            else 
             {
                 leftnode_index = currentNodeIndex + 1;
                 rightnode_index = node->secondChildOffset;

@@ -72,7 +72,6 @@ void main(void)
     Ray ray = Ray(camera.position + randomAperturePos, finalRayDir);
 
     vec4 accumColor = texture(accumTexture, coordsTile);
-
     vec2 p = -1.0 + 2.0 * (gl_FragCoord.xy) / resolution.xy;
     p.x *= resolution.x/resolution.y;
     float seed = p.x + p.y * 3.43121412313;

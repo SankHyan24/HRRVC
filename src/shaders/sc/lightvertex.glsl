@@ -320,5 +320,124 @@ void sc_constructLightPath(in float seed ) {
         }
         // lightSample.direction = scatterSample.L;
     }
+}
 
+struct LinearBVHNode{
+    vec3 pmin; 
+    vec3 pmax;
+    int primitivesOffsetOrSecondChildOffset; // leaf or interior
+    int nPrimitives; // 0 -> interior node
+    int axis; // interior node: xyz
+};
+
+float IntersectPD(in vec3 ro, in vec3 rd, in vec3 invDir, in ivec3 dirIsNeg, in float scale, in vec3 boundmin, in vec3 boundmax){
+    float tMin = (boundmin.x - ro.x) * invDir.x; //2603 line
+    float tMax = (boundmax.x - ro.x) * invDir.x;
+    float tyMin = (boundmin.y - ro.y) * invDir.y;
+    float tyMax = (boundmax.y - ro.y) * invDir.y;
+
+    tMax *= scale;
+    tyMax *= scale;
+    if (tMin > tyMax || tyMin > tMax)
+        return -1.0;
+    if (tyMin > tMin)
+        tMin = tyMin;
+    if (tyMax < tMax)
+        tMax = tyMax;
+
+    // Check for ray intersection against $z$ slab
+    float tzMin = (boundmin.z - ro.z) * invDir.z;
+    float tzMax = (boundmax.z - ro.z) * invDir.z;
+
+    // Update _tzMax_ to ensure robust bounds intersection
+    // tzMax *= 1 + 2. * gamma(3);
+    tzMax *= scale;
+    if (tMin > tzMax || tzMin > tMax)
+        return -1.0;
+    if (tzMin > tMin)
+        tMin = tzMin;
+    if (tzMax < tMax)
+        tMax = tzMax;
+    return tMax;
+}
+//2632
+float gamma(in int n){
+    return (n * EPS_GAMMA ) / (1 - n * EPS_GAMMA);
+}
+
+void fetchLightBVHnode(inout LinearBVHNode node, in int index){
+    node.pmin = texelFetch(lightPathBVHTex, index * 3 + 0).xyz;
+    node.pmax = texelFetch(lightPathBVHTex, index * 3 + 1).xyz;
+    node.primitivesOffsetOrSecondChildOffset = int(texelFetch(lightPathBVHTex, index * 3 + 2).x);
+    node.nPrimitives = int(texelFetch(lightPathBVHTex, index * 3 + 2).y);
+    node.axis = int(texelFetch(lightPathBVHTex, index * 3 + 2).z);
+}
+// lightPathBVHTex
+// vec3 boundpmin = texelFetch(lightPathBVHTex, leftIndex * 3 + 0).xyz
+// bool IntersectPB(in vec3 ro, in vec3 rd,  int depth = 1, float scale = 1 + 2 * gamma(3))
+bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
+    
+    vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
+    ivec3 dirIsNeg = ivec3(
+        int(invDir.x < 0),
+        int(invDir.y < 0),
+        int(invDir.z < 0)
+    );
+
+    int nodesToVisit[1024];
+    for(int i = 0; i < 1024; i++){
+        nodesToVisit[i] = 0;
+    }
+
+    nodesToVisit[0] = 0;
+    int toVisitOffset = 1;
+    int currentNodeIndex = 0;
+    int leftnode_index = 1;
+    int rightnode_index;
+    int currentdepth = 0;
+    while (toVisitOffset != 0){
+        LinearBVHNode bvhnode; 
+        fetchLightBVHnode(bvhnode, currentNodeIndex); 
+        if(bvhnode.nPrimitives > 0)// 
+        {
+            currentdepth += 1; 
+            if (currentdepth == depth)
+            {
+                break;
+            }
+        }
+        else{
+            leftnode_index = currentNodeIndex + 1;
+            rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset;
+            
+            LinearBVHNode leftnode; 
+            LinearBVHNode rightnode;
+            fetchLightBVHnode(leftnode, leftnode_index);
+            fetchLightBVHnode(rightnode, rightnode_index);
+            float leftInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, leftnode.pmin, leftnode.pmax);
+            float rightInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, rightnode.pmin, rightnode.pmax);
+            bool leftInsect = bool(leftInsect_ > 0 ? 1 : 0);
+            bool rightInsect = bool(rightInsect_ > 0 ? 1 : 0);
+            if(leftInsect && !rightInsect){
+                nodesToVisit[++toVisitOffset] = leftnode_index;
+            }
+            else if(!leftInsect && rightInsect){
+                nodesToVisit[++toVisitOffset] = rightnode_index;
+            }
+            else if(leftInsect && rightInsect){
+                if (leftInsect_ < rightInsect_)
+                {
+                    nodesToVisit[++toVisitOffset] = rightnode_index;
+                    nodesToVisit[++toVisitOffset] = leftnode_index;
+                }
+                else
+                {
+                    nodesToVisit[++toVisitOffset] = leftnode_index;
+                    nodesToVisit[++toVisitOffset] = rightnode_index;
+                }
+            }
+        }
+        currentNodeIndex = nodesToVisit[toVisitOffset--];
+    }
+    return false; 
 }
