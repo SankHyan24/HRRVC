@@ -72,6 +72,9 @@ namespace GLSLPT
         lightPathBVHBuffer = 0;
         lightPathBVHTex = 0;
 
+        // sc
+        scPreLightSize = scene->renderOptions.sc_BDPT_LIGHTPATH;
+
         if (scene == nullptr)
         {
             printf("No Scene Found\n");
@@ -111,9 +114,9 @@ namespace GLSLPT
         glDeleteTextures(1, &tileOutputTexture[1]);
         glDeleteTextures(1, &denoisedTexture);
         // wyd:
-        glDeleteTextures(1, &lightInTex);
-        glDeleteTextures(1, &lightOutTex);
-        glDeleteTextures(1, &lightPathTex);
+        // glDeleteTextures(1, &lightInTex);
+        // glDeleteTextures(1, &lightOutTex);
+        // glDeleteTextures(1, &lightPathTex);
 
         // Delete buffers
         glDeleteBuffers(1, &BVHBuffer);
@@ -138,20 +141,68 @@ namespace GLSLPT
         // Delete denoiser data
         delete[] denoiserInputFramePtr;
         delete[] frameOutputPtr;
-        for (int i = 0; i < lpnum; i++)
-        {
-            for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
-            {
-                delete[] lightPathNodes[i][j];
-            }
-            delete[] lightPathNodes[i];
-        }
-        delete[] lightPathNodes;
+    }
+    void Renderer::ScReleaseLocalBuffer()
+    {
+        glDeleteTextures(1, &lightInTex);
+        glDeleteTextures(1, &lightOutTex);
+        glDeleteTextures(1, &lightPathTex);
 
+        // glDeleteBuffers(1, &lightPathBuffer);
+        // delete[] lightInPixels;
+        // for (int i = 0; i < lpnum; i++)
+        // {
+        //     for (int j = 0; j < scPreLightSize; j++)
+        //     {
+        //         delete[] lightPathNodes[i][j];
+        //     }
+        //     delete[] lightPathNodes[i];
+        // }
+        // delete[] lightPathNodes;
+
+        // for (int i = 0; i < lpnum; i++)
+        // {
+        //     delete[] lightPathInfos[i];
+        // }
+    }
+
+    void Renderer::ScRegenerateLocalBuffer()
+    {
+        scPreLightSize = scene->renderOptions.sc_BDPT_LIGHTPATH;
+        lightInPixels = new GLfloat[lpnum * scPreLightSize * 3];
+
+        lightPathNodes = new float **[lpnum];
         for (int i = 0; i < lpnum; i++)
         {
-            delete[] lightPathInfos[i];
+            lightPathNodes[i] = new float *[scPreLightSize];
+            for (int j = 0; j < scPreLightSize; j++)
+            {
+                lightPathNodes[i][j] = new float[3];
+            }
         }
+
+        lightPathInfos = new LightInfo *[lpnum];
+        for (int i = 0; i < lpnum; i++)
+        {
+            lightPathInfos[i] = new LightInfo[scPreLightSize];
+        }
+        glGenBuffers(1, &lightPathBuffer);
+        glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
+        glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0][0], GL_STATIC_DRAW);
+        glGenTextures(1, &lightPathTex);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
+        glGenTextures(1, &lightInTex);
+        glBindTexture(GL_TEXTURE_2D, lightInTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum, scPreLightSize, 0, GL_RGB, GL_BYTE, lightInPixels);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glGenTextures(1, &lightOutTex);
+        glBindTexture(GL_TEXTURE_2D, lightOutTex);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, lpnum, scPreLightSize * 7); // wyd update light
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     void Renderer::InitGPUDataBuffers()
@@ -249,32 +300,17 @@ namespace GLSLPT
         }
 
         // wyd:
-        lightInPixels = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 3];
-
-        lightPathNodes = new float **[lpnum];
-        for (int i = 0; i < lpnum; i++)
-        {
-            lightPathNodes[i] = new float *[scene->renderOptions.sc_BDPT_LIGHTPATH];
-            for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
-            {
-                lightPathNodes[i][j] = new float[3];
-            }
-        }
-
-        lightPathInfos = new LightInfo *[lpnum];
-        for (int i = 0; i < lpnum; i++)
-        {
-            lightPathInfos[i] = new LightInfo[scene->renderOptions.sc_BDPT_LIGHTPATH];
-        }
+        ScRegenerateLocalBuffer();
         // wyd:
 
-        glGenBuffers(1, &lightPathBuffer);
-        glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH, &lightPathInfos[0][0], GL_STATIC_DRAW);
-        glGenTextures(1, &lightPathTex);
-        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
+        // glGenBuffers(1, &lightPathBuffer);
+        // glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
+        // glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH, &lightPathInfos[0][0], GL_STATIC_DRAW);
+        // glGenTextures(1, &lightPathTex);
+        // glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+        // glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
 
+        // nouse
         // glGenTextures(1, &lightPathTex);
         // glBindTexture(GL_TEXTURE_2D, lightPathTex);
         // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, (sizeof(LightInfo) / sizeof(Vec3)) * lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH, 1, 0, GL_RGB, GL_FLOAT, &lightPathInfos[0][0]);
@@ -282,17 +318,17 @@ namespace GLSLPT
         // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         // glBindTexture(GL_TEXTURE_2D, 0);
 
-        glGenTextures(1, &lightInTex);
-        glBindTexture(GL_TEXTURE_2D, lightInTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum, scene->renderOptions.sc_BDPT_LIGHTPATH, 0, GL_RGB, GL_BYTE, lightInPixels);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glBindTexture(GL_TEXTURE_2D, 0);
+        // glGenTextures(1, &lightInTex);
+        // glBindTexture(GL_TEXTURE_2D, lightInTex);
+        // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum, scene->renderOptions.sc_BDPT_LIGHTPATH, 0, GL_RGB, GL_BYTE, lightInPixels);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // glBindTexture(GL_TEXTURE_2D, 0);
 
-        glGenTextures(1, &lightOutTex);
-        glBindTexture(GL_TEXTURE_2D, lightOutTex);
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, lpnum, scene->renderOptions.sc_BDPT_LIGHTPATH * 7); // wyd update light
-        glBindTexture(GL_TEXTURE_2D, 0);
+        // glGenTextures(1, &lightOutTex);
+        // glBindTexture(GL_TEXTURE_2D, lightOutTex);
+        // glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, lpnum, scene->renderOptions.sc_BDPT_LIGHTPATH * 7); // wyd update light
+        // glBindTexture(GL_TEXTURE_2D, 0);
 
         // Bind textures to texture slots as they will not change slots during the lifespan of the renderer
         glActiveTexture(GL_TEXTURE1);
@@ -315,17 +351,6 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, envMapTex);
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, envMapCDFTex);
-
-        // wyd:
-
-        glActiveTexture(GL_TEXTURE11);
-        glBindTexture(GL_TEXTURE_2D, lightInTex);
-        glActiveTexture(GL_TEXTURE12);
-        glBindTexture(GL_TEXTURE_2D, lightOutTex);
-        glActiveTexture(GL_TEXTURE13);
-        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
-        glActiveTexture(GL_TEXTURE14);
-        glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
     }
 
     void Renderer::ResizeRenderer()
@@ -473,6 +498,8 @@ namespace GLSLPT
 
     void Renderer::InitShaders()
     {
+        ScReleaseLocalBuffer();
+        ScRegenerateLocalBuffer();
         ShaderInclude::ShaderSource vertexShaderSrcObj = ShaderInclude::load(shadersDirectory + "common/vertex.glsl");
         ShaderInclude::ShaderSource pathTraceShaderSrcObj = ShaderInclude::load(shadersDirectory + "tile.glsl");
         ShaderInclude::ShaderSource pathTraceShaderLowResSrcObj = ShaderInclude::load(shadersDirectory + "preview.glsl");
@@ -501,10 +528,6 @@ namespace GLSLPT
         if (scene->renderOptions.useBidirectionalPathTracing)
         {
             pathtraceDefines += "#define OPT_BDPT\n";
-            int lightPathLength = scene->renderOptions.sc_BDPT_LIGHTPATH;
-            int eyePathLength = scene->renderOptions.sc_BDPT_EYEPATH;
-            // pathtraceDefines += "#define LIGHTPATHLENGTH " + std::to_string(lightPathLength) + "\n";
-            // pathtraceDefines += "#define EYEPATHLENGTH " + std::to_string(eyePathLength) + "\n";
         }
         // scend
 
@@ -708,15 +731,13 @@ namespace GLSLPT
         if (scene->dirty)
         {
             sc_computeShader->Use();
-            glDispatchCompute((lpnum + 31) / 32, (scene->renderOptions.sc_BDPT_LIGHTPATH + 31) / 32, 1);
+            glDispatchCompute((lpnum + 31) / 32, (scPreLightSize + 31) / 32, 1);
 
             glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-            GLfloat *img = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
+            GLfloat *img = new GLfloat[lpnum * scPreLightSize * 4 * 7]; // wyd: update light
             glBindTexture(GL_TEXTURE_2D, lightOutTex);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
-
-            sc_computeShader->StopUsing();
 
             /*
                 struct LightInfo
@@ -733,7 +754,7 @@ namespace GLSLPT
 
             for (int i = 0; i < lpnum; i++)
             {
-                for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
+                for (int j = 0; j < scPreLightSize; j++)
                 {
 
                     lightPathInfos[i][j].position =
@@ -809,7 +830,7 @@ namespace GLSLPT
             std::vector<Point3f> pts;
             for (int i = 0; i < lpnum; i++)
             {
-                for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
+                for (int j = 0; j < scPreLightSize; j++)
                 {
                     pts.push_back(Point3f(lightPathInfos[i][j].position.x,
                                           lightPathInfos[i][j].position.y,
@@ -818,11 +839,11 @@ namespace GLSLPT
             }
 
             // output pts value
-            freopen("out.txt", "w", stdout);
-            for (int i = 0; i < pts.size(); i++)
-            {
-                printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
-            }
+            // freopen("out.txt", "w", stdout);
+            // for (int i = 0; i < pts.size(); i++)
+            // {
+            //     printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
+            // }
 
             // point cloud visualization
 
@@ -871,7 +892,7 @@ namespace GLSLPT
 
             delete[] img;
 
-            glUseProgram(0);
+            sc_computeShader->StopUsing();
 
             // Renders a low res preview if camera/instances are modified
             glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBOLowRes);

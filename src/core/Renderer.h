@@ -199,9 +199,10 @@ namespace GLSLPT
         bool initialized;
 
         // wyd:
-        GLfloat *lightInPixels;
-        float ***lightPathNodes;
-        LightInfo **lightPathInfos;
+        int scPreLightSize;
+        GLfloat *lightInPixels{nullptr};
+        float ***lightPathNodes{nullptr};
+        LightInfo **lightPathInfos{nullptr};
 
     public:
         Renderer(Scene *scene, const std::string &shadersDirectory);
@@ -220,5 +221,7 @@ namespace GLSLPT
         void InitGPUDataBuffers();
         void InitFBOs();
         void InitShaders();
+        void ScRegenerateLocalBuffer();
+        void ScReleaseLocalBuffer();
     };
 }
