@@ -14,6 +14,7 @@ struct LightPathNode {
     Material mat;
 };
 
+
 LightPathNode lightVertices[10];
 
 vec3 SampleCosWeightedHemisphereDirection(out float pdf){
@@ -231,7 +232,7 @@ void sc_constructLightPath(in float seed ) {
     LightSampleRec lightSample;
     ScatterSampleRec scatterSample;
     Light light;
-
+    
     // 1. sample the light
     int index = int(rand() * float(numOfLights)) * 5;
 
@@ -322,6 +323,8 @@ void sc_constructLightPath(in float seed ) {
     }
 }
 
+
+
 struct LinearBVHNode{
     vec3 pmin; 
     vec3 pmax;
@@ -360,6 +363,7 @@ float IntersectPD(in vec3 ro, in vec3 rd, in vec3 invDir, in ivec3 dirIsNeg, in 
         tMax = tzMax;
     return tMax;
 }
+
 //2632
 float gamma(in int n){
     return (n * EPS_GAMMA ) / (1 - n * EPS_GAMMA);
@@ -374,7 +378,7 @@ void fetchLightBVHnode(inout LinearBVHNode node, in int index){
 }
 // lightPathBVHTex
 // vec3 boundpmin = texelFetch(lightPathBVHTex, leftIndex * 3 + 0).xyz
-// bool IntersectPB(in vec3 ro, in vec3 rd,  int depth = 1, float scale = 1 + 2 * gamma(3))
+// bool IntersectPB(in vec3 ro, in vec3 rd,  int depth = 1, float scale = 1 + 2 * gamma(3)) 
 bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
     
     vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
@@ -384,7 +388,7 @@ bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
         int(invDir.z < 0)
     );
 
-    int nodesToVisit[1024];
+    int nodesToVisit[1024]; //stack
     for(int i = 0; i < 1024; i++){
         nodesToVisit[i] = 0;
     }
@@ -409,7 +413,7 @@ bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
         else{
             leftnode_index = currentNodeIndex + 1;
             rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset;
-            
+
             LinearBVHNode leftnode; 
             LinearBVHNode rightnode;
             fetchLightBVHnode(leftnode, leftnode_index);
@@ -441,3 +445,4 @@ bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
     }
     return false; 
 }
+

@@ -31,6 +31,12 @@
 #include "cstring"
 #include "lightbvh.h"
 #include <chrono>
+// point cloud
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/visualization/cloud_viewer.h>
+#include <pcl/visualization/pcl_visualizer.h>
+// #include <boost/thread/thread.hpp>
 
 char* checkLinkErrors(uint32_t prog, int len, char* buffer)
 {
@@ -786,20 +792,20 @@ namespace GLSLPT
             //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
             //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
             //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
-            //         printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
-            //         printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
-            //         printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
-            //         printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
-            //         printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
-            //         printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
-            //         printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
-            //         printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
-            //         lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
-            //         printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
+                    // printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
+                    // lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
+                    // printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
+                    // lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
+                    // printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
+                    // lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
+                    // printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
+                    // lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
+                    // printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
+                    // printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
+                    // printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
+                    // printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
+                    // lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
+                    // printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
             //     }
             // }
             // freopen("CON","w",stdout);
@@ -823,9 +829,49 @@ namespace GLSLPT
                                           lightPathInfos[i][j].position.z));
                 }
             }
+
+            // output pts value
+            // freopen("out.txt", "w", stdout);
+            // for(int i = 0; i < pts.size(); i++){
+            //     printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
+            // }
+
+
+            // point cloud visualization
+            
+            pcl::PointCloud<pcl::PointXYZ> cloud;
+            cloud.width = 100 * scene->renderOptions.sc_BDPT_LIGHTPATH;
+            cloud.height = 1;
+            cloud.is_dense = false;
+            cloud.points.resize(cloud.width * cloud.height);
+            for (size_t i = 0; i < cloud.points.size(); ++i)
+            {
+                cloud.points[i].x = pts[i].x;
+                cloud.points[i].y = pts[i].y;
+                cloud.points[i].z = pts[i].z;
+            }
+
+            pcl::io::savePCDFileASCII("selfgen.pcd", cloud);
+
+
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
+        
+            if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1)//*打开点云文件
+            {
+                PCL_ERROR("Couldn't read file test_pcd.pcd\n");
+            }
+
+            pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("viewer"));
+            viewer->addCoordinateSystem(1); 
+
+            viewer->addPointCloud(cloud2);
+
+            viewer->spin();
+            
+
             auto beforeTime = std::chrono::steady_clock::now();
 
-            BVH_ACC1 bvh_lightpath(pts,0.1,0.2);
+            BVH_ACC1 bvh_lightpath(pts,0.03,0.07);
             auto afterTime = std::chrono::steady_clock::now();
             double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
             printf("bvh construction time: %f ms\n", duration_millsecond);

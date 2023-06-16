@@ -116,7 +116,7 @@ namespace GLSLPT
         // sc:
         bool useBidirectionalPathTracing = false;
         int sc_BDPT_EYEPATH = 3;
-        int sc_BDPT_LIGHTPATH = 3;
+        int sc_BDPT_LIGHTPATH = 2;
     };
 
     class Scene;
