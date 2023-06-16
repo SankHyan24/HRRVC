@@ -34,17 +34,16 @@ namespace GLSLPT
 {
     struct LightInfo
     {
-        Vec3 position; 
+        Vec3 position;
         Vec3 radiance;
         Vec3 normal;
         Vec3 ffnormal;
-        Vec3 direction; 
-        float eta; 
-        int matID; 
+        Vec3 direction;
+        float eta;
+        int matID;
         int avaliable;
-        Vec2 texCoods; 
-        float matroughness; 
-
+        Vec2 texCoods;
+        float matroughness;
     };
 
     Program *LoadShaders(const ShaderInclude::ShaderSource &vertShaderObj, const ShaderInclude::ShaderSource &fragShaderObj);
@@ -143,7 +142,7 @@ namespace GLSLPT
         GLuint envMapTex;
         GLuint envMapCDFTex;
 
-        //wyd: gl light inout tex
+        // wyd: gl light inout tex
         GLuint lightInTex;
         GLuint lightOutTex;
         // lightpath tex and buffer object
@@ -165,8 +164,9 @@ namespace GLSLPT
         Program *pathTraceShaderLowRes;
         Program *outputShader;
         Program *tonemapShader;
+        Program *sc_computeShader;
 
-        //wyd: 
+        // wyd:
         GLuint lightComputeShader;
 
         // Render textures
@@ -197,10 +197,10 @@ namespace GLSLPT
         bool denoised;
 
         bool initialized;
-        
-        // wyd: 
+
+        // wyd:
         GLfloat *lightInPixels;
-        float ***lightPathNodes; 
+        float ***lightPathNodes;
         LightInfo **lightPathInfos;
 
     public:
@@ -215,7 +215,6 @@ namespace GLSLPT
         float GetProgress();
         int GetSampleCount();
         void GetOutputBuffer(unsigned char **, int &w, int &h);
-
 
     private:
         void InitGPUDataBuffers();

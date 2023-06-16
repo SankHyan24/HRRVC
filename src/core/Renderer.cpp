@@ -9,7 +9,7 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
  *
@@ -40,17 +40,17 @@
 
 #define lpnum 2000
 
-char* checkLinkErrors(uint32_t prog, int len, char* buffer)
+char *checkLinkErrors(uint32_t prog, int len, char *buffer)
 {
     GLint success;
     glGetProgramiv(prog, GL_LINK_STATUS, &success);
-    if (!success) {
+    if (!success)
+    {
         glGetProgramInfoLog(prog, len, nullptr, buffer);
         return buffer;
     }
     return nullptr;
 }
-
 
 namespace GLSLPT
 {
@@ -65,10 +65,10 @@ namespace GLSLPT
     Renderer::Renderer(Scene *scene, const std::string &shadersDirectory)
         : scene(scene), BVHBuffer(0), BVHTex(0), vertexIndicesBuffer(0), vertexIndicesTex(0), verticesBuffer(0), verticesTex(0), normalsBuffer(0), normalsTex(0), materialsTex(0), transformsTex(0), lightsTex(0), textureMapsArrayTex(0), envMapTex(0), envMapCDFTex(0), pathTraceTextureLowRes(0), pathTraceTexture(0), accumTexture(0), tileOutputTexture(), denoisedTexture(0), pathTraceFBO(0), pathTraceFBOLowRes(0), accumFBO(0), outputFBO(0), shadersDirectory(shadersDirectory), pathTraceShader(nullptr), pathTraceShaderLowRes(nullptr), outputShader(nullptr), tonemapShader(nullptr)
     {
-        //wyd
+        // wyd
         lightInTex = 0;
         lightOutTex = 0;
-        lightPathTex = 0; 
+        lightPathTex = 0;
         lightPathBVHBuffer = 0;
         lightPathBVHTex = 0;
 
@@ -110,11 +110,11 @@ namespace GLSLPT
         glDeleteTextures(1, &tileOutputTexture[0]);
         glDeleteTextures(1, &tileOutputTexture[1]);
         glDeleteTextures(1, &denoisedTexture);
-        // wyd: 
+        // wyd:
         glDeleteTextures(1, &lightInTex);
-        glDeleteTextures(1, &lightOutTex );
+        glDeleteTextures(1, &lightOutTex);
         glDeleteTextures(1, &lightPathTex);
-        
+
         // Delete buffers
         glDeleteBuffers(1, &BVHBuffer);
         glDeleteBuffers(1, &lightPathBVHBuffer);
@@ -133,19 +133,23 @@ namespace GLSLPT
         delete pathTraceShaderLowRes;
         delete outputShader;
         delete tonemapShader;
+        delete sc_computeShader;
 
         // Delete denoiser data
         delete[] denoiserInputFramePtr;
         delete[] frameOutputPtr;
-        for (int i = 0; i < lpnum; i++) {
-            for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++) {
+        for (int i = 0; i < lpnum; i++)
+        {
+            for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
+            {
                 delete[] lightPathNodes[i][j];
             }
             delete[] lightPathNodes[i];
         }
         delete[] lightPathNodes;
 
-        for (int i = 0;i < lpnum; i++) {
+        for (int i = 0; i < lpnum; i++)
+        {
             delete[] lightPathInfos[i];
         }
     }
@@ -153,55 +157,55 @@ namespace GLSLPT
     void Renderer::InitGPUDataBuffers()
     {
         {
-        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-        // Create buffer and texture for BVH
-        glGenBuffers(1, &BVHBuffer);
-        glBindBuffer(GL_TEXTURE_BUFFER, BVHBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(RadeonRays::BvhTranslator::Node) * scene->bvhTranslator.nodes.size(), &scene->bvhTranslator.nodes[0], GL_STATIC_DRAW);
-        glGenTextures(1, &BVHTex);
-        glBindTexture(GL_TEXTURE_BUFFER, BVHTex);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, BVHBuffer);
+            // Create buffer and texture for BVH
+            glGenBuffers(1, &BVHBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, BVHBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(RadeonRays::BvhTranslator::Node) * scene->bvhTranslator.nodes.size(), &scene->bvhTranslator.nodes[0], GL_STATIC_DRAW);
+            glGenTextures(1, &BVHTex);
+            glBindTexture(GL_TEXTURE_BUFFER, BVHTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, BVHBuffer);
 
-        // Create buffer and texture for vertex indices
-        glGenBuffers(1, &vertexIndicesBuffer);
-        glBindBuffer(GL_TEXTURE_BUFFER, vertexIndicesBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(Indices) * scene->vertIndices.size(), &scene->vertIndices[0], GL_STATIC_DRAW);
-        glGenTextures(1, &vertexIndicesTex);
-        glBindTexture(GL_TEXTURE_BUFFER, vertexIndicesTex);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32I, vertexIndicesBuffer);
+            // Create buffer and texture for vertex indices
+            glGenBuffers(1, &vertexIndicesBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, vertexIndicesBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(Indices) * scene->vertIndices.size(), &scene->vertIndices[0], GL_STATIC_DRAW);
+            glGenTextures(1, &vertexIndicesTex);
+            glBindTexture(GL_TEXTURE_BUFFER, vertexIndicesTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32I, vertexIndicesBuffer);
 
-        // Create buffer and texture for vertices
-        glGenBuffers(1, &verticesBuffer);
-        glBindBuffer(GL_TEXTURE_BUFFER, verticesBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(Vec4) * scene->verticesUVX.size(), &scene->verticesUVX[0], GL_STATIC_DRAW);
-        glGenTextures(1, &verticesTex);
-        glBindTexture(GL_TEXTURE_BUFFER, verticesTex);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, verticesBuffer);
+            // Create buffer and texture for vertices
+            glGenBuffers(1, &verticesBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, verticesBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(Vec4) * scene->verticesUVX.size(), &scene->verticesUVX[0], GL_STATIC_DRAW);
+            glGenTextures(1, &verticesTex);
+            glBindTexture(GL_TEXTURE_BUFFER, verticesTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, verticesBuffer);
 
-        // Create buffer and texture for normals
-        glGenBuffers(1, &normalsBuffer);
-        glBindBuffer(GL_TEXTURE_BUFFER, normalsBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(Vec4) * scene->normalsUVY.size(), &scene->normalsUVY[0], GL_STATIC_DRAW);
-        glGenTextures(1, &normalsTex);
-        glBindTexture(GL_TEXTURE_BUFFER, normalsTex);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, normalsBuffer);
+            // Create buffer and texture for normals
+            glGenBuffers(1, &normalsBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, normalsBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(Vec4) * scene->normalsUVY.size(), &scene->normalsUVY[0], GL_STATIC_DRAW);
+            glGenTextures(1, &normalsTex);
+            glBindTexture(GL_TEXTURE_BUFFER, normalsTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, normalsBuffer);
 
-        // Create texture for materials
-        glGenTextures(1, &materialsTex);
-        glBindTexture(GL_TEXTURE_2D, materialsTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (sizeof(Material) / sizeof(Vec4)) * scene->materials.size(), 1, 0, GL_RGBA, GL_FLOAT, &scene->materials[0]);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glBindTexture(GL_TEXTURE_2D, 0);
+            // Create texture for materials
+            glGenTextures(1, &materialsTex);
+            glBindTexture(GL_TEXTURE_2D, materialsTex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (sizeof(Material) / sizeof(Vec4)) * scene->materials.size(), 1, 0, GL_RGBA, GL_FLOAT, &scene->materials[0]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-        // Create texture for transforms
-        glGenTextures(1, &transformsTex);
-        glBindTexture(GL_TEXTURE_2D, transformsTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (sizeof(Mat4) / sizeof(Vec4)) * scene->transforms.size(), 1, 0, GL_RGBA, GL_FLOAT, &scene->transforms[0]);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glBindTexture(GL_TEXTURE_2D, 0);
+            // Create texture for transforms
+            glGenTextures(1, &transformsTex);
+            glBindTexture(GL_TEXTURE_2D, transformsTex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (sizeof(Mat4) / sizeof(Vec4)) * scene->transforms.size(), 1, 0, GL_RGBA, GL_FLOAT, &scene->transforms[0]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
         // Create texture for lights
         if (!scene->lights.empty())
@@ -244,23 +248,25 @@ namespace GLSLPT
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 
-        
-        // wyd: 
+        // wyd:
         lightInPixels = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 3];
 
-        lightPathNodes = new float**[lpnum];
-        for (int i = 0; i < lpnum; i++) {
-            lightPathNodes[i] = new float*[scene->renderOptions.sc_BDPT_LIGHTPATH];
-            for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++) {
+        lightPathNodes = new float **[lpnum];
+        for (int i = 0; i < lpnum; i++)
+        {
+            lightPathNodes[i] = new float *[scene->renderOptions.sc_BDPT_LIGHTPATH];
+            for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
+            {
                 lightPathNodes[i][j] = new float[3];
             }
         }
 
-        lightPathInfos = new LightInfo*[lpnum];
-        for (int i = 0; i < lpnum; i++) {
+        lightPathInfos = new LightInfo *[lpnum];
+        for (int i = 0; i < lpnum; i++)
+        {
             lightPathInfos[i] = new LightInfo[scene->renderOptions.sc_BDPT_LIGHTPATH];
         }
-        // wyd: 
+        // wyd:
 
         glGenBuffers(1, &lightPathBuffer);
         glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
@@ -276,14 +282,12 @@ namespace GLSLPT
         // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         // glBindTexture(GL_TEXTURE_2D, 0);
 
-
-        glGenTextures(1, &lightInTex); 
-        glBindTexture(GL_TEXTURE_2D, lightInTex); 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum ,scene->renderOptions.sc_BDPT_LIGHTPATH ,0 , GL_RGB, GL_BYTE, lightInPixels); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
-        glBindTexture(GL_TEXTURE_2D, 0); 
-
+        glGenTextures(1, &lightInTex);
+        glBindTexture(GL_TEXTURE_2D, lightInTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum, scene->renderOptions.sc_BDPT_LIGHTPATH, 0, GL_RGB, GL_BYTE, lightInPixels);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
         glGenTextures(1, &lightOutTex);
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
@@ -312,7 +316,7 @@ namespace GLSLPT
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, envMapCDFTex);
 
-        //wyd: 
+        // wyd:
 
         glActiveTexture(GL_TEXTURE11);
         glBindTexture(GL_TEXTURE_2D, lightInTex);
@@ -349,6 +353,7 @@ namespace GLSLPT
         delete pathTraceShaderLowRes;
         delete outputShader;
         delete tonemapShader;
+        delete sc_computeShader;
 
         InitFBOs();
         InitShaders();
@@ -375,20 +380,18 @@ namespace GLSLPT
         tile.x = -1;
         tile.y = numTiles.y - 1;
 
-        
-        
         // Create FBOs for path trace shader
-        glGenFramebuffers(1, &pathTraceFBO); 
-        glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBO); 
+        glGenFramebuffers(1, &pathTraceFBO);
+        glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBO);
 
         // Create Texture for FBO
-        glGenTextures(1, &pathTraceTexture); 
-        glBindTexture(GL_TEXTURE_2D, pathTraceTexture); 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, tileWidth, tileHeight, 0, GL_RGBA, GL_FLOAT, 0); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
-        glBindTexture(GL_TEXTURE_2D, 0); 
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pathTraceTexture, 0); 
+        glGenTextures(1, &pathTraceTexture);
+        glBindTexture(GL_TEXTURE_2D, pathTraceTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, tileWidth, tileHeight, 0, GL_RGBA, GL_FLOAT, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pathTraceTexture, 0);
 
         // Create FBOs for low res preview shader
         glGenFramebuffers(1, &pathTraceFBOLowRes);
@@ -463,6 +466,7 @@ namespace GLSLPT
         delete pathTraceShaderLowRes;
         delete outputShader;
         delete tonemapShader;
+        delete sc_computeShader;
 
         InitShaders();
     }
@@ -474,9 +478,9 @@ namespace GLSLPT
         ShaderInclude::ShaderSource pathTraceShaderLowResSrcObj = ShaderInclude::load(shadersDirectory + "preview.glsl");
         ShaderInclude::ShaderSource outputShaderSrcObj = ShaderInclude::load(shadersDirectory + "output.glsl");
         ShaderInclude::ShaderSource tonemapShaderSrcObj = ShaderInclude::load(shadersDirectory + "tonemap.glsl");
-        //wyd: 
+        // wyd:
         ShaderInclude::ShaderSource lightShaderSrcObj = ShaderInclude::load(shadersDirectory + "lightcompute.glsl");
-        
+
         // Add preprocessor defines for conditional compilation
         std::string pathtraceDefines = "";
         std::string tonemapDefines = "";
@@ -581,13 +585,12 @@ namespace GLSLPT
         outputShader = LoadShaders(vertexShaderSrcObj, outputShaderSrcObj);
         tonemapShader = LoadShaders(vertexShaderSrcObj, tonemapShaderSrcObj);
 
-        // wyd: 
+        // wyd:
+
         lightComputeShader = glCreateShader(GL_COMPUTE_SHADER);
-        const char* const srcs[] = { lightShaderSrcObj.src.c_str() };
-        // printf("srcs: %s\n", srcs[0]);
+        const char *const srcs[] = {lightShaderSrcObj.src.c_str()};
         glShaderSource(lightComputeShader, 1, srcs, nullptr);
         glCompileShader(lightComputeShader);
-
 
         // Setup shader uniforms
         GLuint shaderObject;
@@ -615,8 +618,8 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "textureMapsArrayTex"), 8);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapTex"), 9);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
-        // wyd: 
-        glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13); 
+        // wyd:
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13);
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHTex"), 14);
         pathTraceShader->StopUsing();
 
@@ -642,10 +645,55 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "textureMapsArrayTex"), 8);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapTex"), 9);
         glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
-        // wyd: 
-        glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13); 
+        // wyd:
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13);
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHTex"), 14);
         pathTraceShaderLowRes->StopUsing();
+
+        {
+            std::vector<Shader> tmpshaders;
+            tmpshaders.push_back(Shader(lightShaderSrcObj, GL_COMPUTE_SHADER));
+            sc_computeShader = new Program(tmpshaders);
+        }
+
+        sc_computeShader->Use();
+        shaderObject = sc_computeShader->getObject();
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, lightInTex);
+            glBindImageTexture(0, lightOutTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+            glUniform1i(glGetUniformLocation(shaderObject, "topBVHIndex"), scene->bvhTranslator.topLevelIndex);
+            glUniform2f(glGetUniformLocation(shaderObject, "resolution"), float(renderSize.x), float(renderSize.y));
+            glUniform2f(glGetUniformLocation(shaderObject, "invNumTiles"), invNumTiles.x, invNumTiles.y);
+            glUniform1i(glGetUniformLocation(shaderObject, "numOfLights"), scene->lights.size());
+            glUniform1i(glGetUniformLocation(shaderObject, "accumTexture"), 0);
+            glUniform1i(glGetUniformLocation(shaderObject, "BVH"), 1);
+            glUniform1i(glGetUniformLocation(shaderObject, "vertexIndicesTex"), 2);
+            glUniform1i(glGetUniformLocation(shaderObject, "verticesTex"), 3);
+            glUniform1i(glGetUniformLocation(shaderObject, "normalsTex"), 4);
+            glUniform1i(glGetUniformLocation(shaderObject, "materialsTex"), 5);
+            glUniform1i(glGetUniformLocation(shaderObject, "transformsTex"), 6);
+            glUniform1i(glGetUniformLocation(shaderObject, "lightsTex"), 7);
+            glUniform1i(glGetUniformLocation(shaderObject, "textureMapsArrayTex"), 8);
+            glUniform1i(glGetUniformLocation(shaderObject, "envMapTex"), 9);
+            glUniform1i(glGetUniformLocation(shaderObject, "envMapCDFTex"), 10);
+            // wyd:
+
+            glUniform1i(glGetUniformLocation(shaderObject, "enableEnvMap"), scene->envMap == nullptr ? false : scene->renderOptions.enableEnvMap);
+            glUniform1f(glGetUniformLocation(shaderObject, "envMapIntensity"), scene->renderOptions.envMapIntensity);
+            glUniform1f(glGetUniformLocation(shaderObject, "envMapRot"), scene->renderOptions.envMapRot / 360.0f);
+            glUniform1i(glGetUniformLocation(shaderObject, "maxDepth"), scene->renderOptions.maxDepth);
+            glUniform1i(glGetUniformLocation(shaderObject, "LIGHTPATHLENGTH"), scene->renderOptions.sc_BDPT_LIGHTPATH); // sc:
+            glUniform1i(glGetUniformLocation(shaderObject, "EYEPATHLENGTH"), scene->renderOptions.sc_BDPT_EYEPATH);     // sc:
+            glUniform2f(glGetUniformLocation(shaderObject, "tileOffset"), (float)tile.x * invNumTiles.x, (float)tile.y * invNumTiles.y);
+            glUniform3f(glGetUniformLocation(shaderObject, "uniformLightCol"), scene->renderOptions.uniformLightCol.x, scene->renderOptions.uniformLightCol.y, scene->renderOptions.uniformLightCol.z);
+            glUniform1f(glGetUniformLocation(shaderObject, "roughnessMollificationAmt"), scene->renderOptions.roughnessMollificationAmt);
+            glUniform1i(glGetUniformLocation(shaderObject, "frameNum"), frameCounter);
+            glUniform1i(glGetUniformLocation(shaderObject, "u_inputTex"), 0);
+            glUniform1i(glGetUniformLocation(shaderObject, "u_outImg"), 0);
+        }
+        sc_computeShader->StopUsing();
     }
 
     void Renderer::Render()
@@ -659,158 +707,97 @@ namespace GLSLPT
 
         if (scene->dirty)
         {
-            // wyd 
-            uint32_t compProg = glCreateProgram();
-
-            glAttachShader(compProg, lightComputeShader);
-            glLinkProgram(compProg);
-
-            glDetachShader(compProg, lightComputeShader);
-            glDeleteShader(lightComputeShader);
-
-            int len = 1005; 
-            char buffer[1005]; 
-            memset(buffer, 0, len);
-
-            checkLinkErrors(compProg, len, buffer);
-            if(strlen(buffer) > 0)
             {
-                printf("link error: %s\n", buffer);
-                exit(1); 
-            }
-            {
-            glUseProgram(compProg);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, lightInTex);
-            glBindImageTexture(0, lightOutTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);      
-            
-            glUniform1i(glGetUniformLocation(compProg, "topBVHIndex"), scene->bvhTranslator.topLevelIndex);
-            glUniform2f(glGetUniformLocation(compProg, "resolution"), float(renderSize.x), float(renderSize.y));
-            glUniform2f(glGetUniformLocation(compProg, "invNumTiles"), invNumTiles.x, invNumTiles.y);
-            glUniform1i(glGetUniformLocation(compProg, "numOfLights"), scene->lights.size());
-            glUniform1i(glGetUniformLocation(compProg, "accumTexture"), 0);
-            glUniform1i(glGetUniformLocation(compProg, "BVH"), 1);
-            glUniform1i(glGetUniformLocation(compProg, "vertexIndicesTex"), 2);
-            glUniform1i(glGetUniformLocation(compProg, "verticesTex"), 3);
-            glUniform1i(glGetUniformLocation(compProg, "normalsTex"), 4);
-            glUniform1i(glGetUniformLocation(compProg, "materialsTex"), 5);
-            glUniform1i(glGetUniformLocation(compProg, "transformsTex"), 6);
-            glUniform1i(glGetUniformLocation(compProg, "lightsTex"), 7);
-            glUniform1i(glGetUniformLocation(compProg, "textureMapsArrayTex"), 8);
-            glUniform1i(glGetUniformLocation(compProg, "envMapTex"), 9);
-            glUniform1i(glGetUniformLocation(compProg, "envMapCDFTex"), 10);
-            //wyd: 
-            
-            glUniform1i(glGetUniformLocation(compProg, "enableEnvMap"), scene->envMap == nullptr ? false : scene->renderOptions.enableEnvMap);
-            glUniform1f(glGetUniformLocation(compProg, "envMapIntensity"), scene->renderOptions.envMapIntensity);
-            glUniform1f(glGetUniformLocation(compProg, "envMapRot"), scene->renderOptions.envMapRot / 360.0f);
-            glUniform1i(glGetUniformLocation(compProg, "maxDepth"), scene->renderOptions.maxDepth);
-            glUniform1i(glGetUniformLocation(compProg, "LIGHTPATHLENGTH"), scene->renderOptions.sc_BDPT_LIGHTPATH); // sc:
-            glUniform1i(glGetUniformLocation(compProg, "EYEPATHLENGTH"), scene->renderOptions.sc_BDPT_EYEPATH);     // sc:
-            glUniform2f(glGetUniformLocation(compProg, "tileOffset"), (float)tile.x * invNumTiles.x, (float)tile.y * invNumTiles.y);
-            glUniform3f(glGetUniformLocation(compProg, "uniformLightCol"), scene->renderOptions.uniformLightCol.x, scene->renderOptions.uniformLightCol.y, scene->renderOptions.uniformLightCol.z);
-            glUniform1f(glGetUniformLocation(compProg, "roughnessMollificationAmt"), scene->renderOptions.roughnessMollificationAmt);
-            glUniform1i(glGetUniformLocation(compProg, "frameNum"), frameCounter);
+                sc_computeShader->Use();
+                glDispatchCompute((lpnum + 31) / 32, (scene->renderOptions.sc_BDPT_LIGHTPATH + 31) / 32, 1);
 
-            glUniform1i(glGetUniformLocation(compProg, "u_inputTex"), 0); 
-            glUniform1i(glGetUniformLocation(compProg, "u_outImg"), 0); 
+                glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+                GLfloat *img = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
+                glBindTexture(GL_TEXTURE_2D, lightOutTex);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
 
-            
-            glDispatchCompute((lpnum+31)/32, (scene->renderOptions.sc_BDPT_LIGHTPATH+31)/32, 1);
-            
-            glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+                sc_computeShader->StopUsing();
             }
-            // wyd:
-            GLfloat* img = new GLfloat[lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH * 4 * 7]; // wyd: update light
-            glBindTexture(GL_TEXTURE_2D, lightOutTex);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
-            
+
             /*
                 struct LightInfo
                 {
                     Vec3 radiance;
                     Vec3 normal;
                     Vec3 ffnormal;
-                    Vec3 direction; 
-                    float eta; 
-                    int matID; 
+                    Vec3 direction;
+                    float eta;
+                    int matID;
                     int avaliable;
                 };
             */
 
-            for(int i = 0; i < lpnum;  i++){ 
-                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
+            for (int i = 0; i < lpnum; i++)
+            {
+                for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
+                {
 
-                    lightPathInfos[i][j].position = 
-                    Vec3(
-                        img[i * 4 + j * 4 *lpnum + 0],
-                        img[i * 4 + j * 4 *lpnum + 1],
-                        img[i * 4 + j * 4 *lpnum + 2] 
-                    );
-                    lightPathInfos[i][j].radiance = 
-                    Vec3(
-                        img[i * 4 + (j + 3) * 4 *lpnum + 0],
-                        img[i * 4 + (j + 3) * 4 *lpnum + 1],
-                        img[i * 4 + (j + 3) * 4 *lpnum + 2] 
-                    );
-                    lightPathInfos[i][j].normal = 
-                    Vec3(
-                        img[i * 4 + (j + 6) * 4 *lpnum + 0],
-                        img[i * 4 + (j + 6) * 4 *lpnum + 1],
-                        img[i * 4 + (j + 6) * 4 *lpnum + 2] 
-                    );
-                    lightPathInfos[i][j].ffnormal = 
-                    Vec3(
-                        img[i * 4 + (j + 9) * 4 *lpnum + 0],
-                        img[i * 4 + (j + 9) * 4 *lpnum + 1],
-                        img[i * 4 + (j + 9) * 4 *lpnum + 2] 
-                    );
-                    lightPathInfos[i][j].direction = 
-                    Vec3(
-                        img[i * 4 + (j + 12) * 4 *lpnum + 0],
-                        img[i * 4 + (j + 12) * 4 *lpnum + 1],
-                        img[i * 4 + (j + 12) * 4 *lpnum + 2] 
-                    );
-                    lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 *lpnum + 0]; 
-                    lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 *lpnum + 1]); 
-                    lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 *lpnum + 2]); 
+                    lightPathInfos[i][j].position =
+                        Vec3(
+                            img[i * 4 + j * 4 * lpnum + 0],
+                            img[i * 4 + j * 4 * lpnum + 1],
+                            img[i * 4 + j * 4 * lpnum + 2]);
+                    lightPathInfos[i][j].radiance =
+                        Vec3(
+                            img[i * 4 + (j + 3) * 4 * lpnum + 0],
+                            img[i * 4 + (j + 3) * 4 * lpnum + 1],
+                            img[i * 4 + (j + 3) * 4 * lpnum + 2]);
+                    lightPathInfos[i][j].normal =
+                        Vec3(
+                            img[i * 4 + (j + 6) * 4 * lpnum + 0],
+                            img[i * 4 + (j + 6) * 4 * lpnum + 1],
+                            img[i * 4 + (j + 6) * 4 * lpnum + 2]);
+                    lightPathInfos[i][j].ffnormal =
+                        Vec3(
+                            img[i * 4 + (j + 9) * 4 * lpnum + 0],
+                            img[i * 4 + (j + 9) * 4 * lpnum + 1],
+                            img[i * 4 + (j + 9) * 4 * lpnum + 2]);
+                    lightPathInfos[i][j].direction =
+                        Vec3(
+                            img[i * 4 + (j + 12) * 4 * lpnum + 0],
+                            img[i * 4 + (j + 12) * 4 * lpnum + 1],
+                            img[i * 4 + (j + 12) * 4 * lpnum + 2]);
+                    lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 * lpnum + 0];
+                    lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 * lpnum + 1]);
+                    lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 * lpnum + 2]);
                     lightPathInfos[i][j].texCoods =
-                    Vec2(
-                        img[i * 4 + (j + 18) * 4 *lpnum + 0],
-                        img[i * 4 + (j + 18) * 4 *lpnum + 1]
-                    );
-                    lightPathInfos[i][j].matroughness = img[i * 4 + (j + 18) * 4 *lpnum + 2];
+                        Vec2(
+                            img[i * 4 + (j + 18) * 4 * lpnum + 0],
+                            img[i * 4 + (j + 18) * 4 * lpnum + 1]);
+                    lightPathInfos[i][j].matroughness = img[i * 4 + (j + 18) * 4 * lpnum + 2];
                 }
-            }   
-            
+            }
 
-
-            // wyd: 
+            // wyd:
             // print to check lightPathNodes
             // freopen("out.txt", "w", stdout);
             // for(int i = 0; i < lpnum; i++){
             //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
             //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
             //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
-                    // printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
-                    // lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
-                    // printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
-                    // lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
-                    // printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
-                    // lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
-                    // printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
-                    // lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
-                    // printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta); 
-                    // printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID); 
-                    // printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable); 
-                    // printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
-                    // lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
-                    // printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
+            // printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
+            // lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
+            // printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
+            // lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
+            // printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
+            // lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
+            // printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
+            // lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
+            // printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta);
+            // printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID);
+            // printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable);
+            // printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
+            // lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
+            // printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
             //     }
             // }
             // freopen("CON","w",stdout);
-
 
             // print image to check memory allocation
             // freopen("out.txt", "w", stdout);
@@ -820,26 +807,27 @@ namespace GLSLPT
             //     }
             // }
 
-
             // construct bvh
-            std::vector<Point3f> pts; 
-            for(int i = 0; i < lpnum;  i++){
-                for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
-                    pts.push_back(Point3f(lightPathInfos[i][j].position.x, 
-                                          lightPathInfos[i][j].position.y, 
+            std::vector<Point3f> pts;
+            for (int i = 0; i < lpnum; i++)
+            {
+                for (int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++)
+                {
+                    pts.push_back(Point3f(lightPathInfos[i][j].position.x,
+                                          lightPathInfos[i][j].position.y,
                                           lightPathInfos[i][j].position.z));
                 }
             }
 
             // output pts value
-            // freopen("out.txt", "w", stdout);
-            // for(int i = 0; i < pts.size(); i++){
-            //     printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
-            // }
-
+            freopen("out.txt", "w", stdout);
+            for (int i = 0; i < pts.size(); i++)
+            {
+                printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
+            }
 
             // point cloud visualization
-            
+
             // pcl::PointCloud<pcl::PointXYZ> cloud;
             // cloud.width = lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH;
             // cloud.height = 1;
@@ -854,29 +842,27 @@ namespace GLSLPT
 
             // pcl::io::savePCDFileASCII("selfgen.pcd", cloud);
 
-
             // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
-        
-            // if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1)//*打开点云文件
+
+            // if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1) //*打开点云文件
             // {
             //     PCL_ERROR("Couldn't read file test_pcd.pcd\n");
             // }
 
             // pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("viewer"));
-            // viewer->addCoordinateSystem(1); 
+            // viewer->addCoordinateSystem(1);
 
             // viewer->addPointCloud(cloud2);
 
             // viewer->spin();
-            
 
             auto beforeTime = std::chrono::steady_clock::now();
 
-            BVH_ACC1 bvh_lightpath(pts,0.03,0.07);
+            BVH_ACC1 bvh_lightpath(pts, 0.03, 0.07);
             auto afterTime = std::chrono::steady_clock::now();
             double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
             printf("bvh construction time: %f ms\n", duration_millsecond);
-            LinearBVHNode* bvh_nodes = bvh_lightpath.nodes; 
+            LinearBVHNode *bvh_nodes = bvh_lightpath.nodes;
 
             glGenBuffers(1, &lightPathBVHBuffer);
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHBuffer);
@@ -894,8 +880,6 @@ namespace GLSLPT
             glViewport(0, 0, windowSize.x * pixelRatio, windowSize.y * pixelRatio);
             quad->Draw(pathTraceShaderLowRes);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-            
 
             scene->instancesModified = false;
             scene->dirty = false;
@@ -1151,5 +1135,11 @@ namespace GLSLPT
         glUniform1i(glGetUniformLocation(shaderObject, "simpleAcesFit"), scene->renderOptions.simpleAcesFit);
         glUniform3f(glGetUniformLocation(shaderObject, "backgroundCol"), scene->renderOptions.backgroundCol.x, scene->renderOptions.backgroundCol.y, scene->renderOptions.backgroundCol.z);
         tonemapShader->StopUsing();
+
+        sc_computeShader->Use();
+        shaderObject = sc_computeShader->getObject();
+        glUniform1i(glGetUniformLocation(shaderObject, "LIGHTPATHLENGTH"), scene->dirty ? 3 : scene->renderOptions.sc_BDPT_LIGHTPATH);
+        glUniform1i(glGetUniformLocation(shaderObject, "EYEPATHLENGTH"), scene->dirty ? 3 : scene->renderOptions.sc_BDPT_EYEPATH);
+        sc_computeShader->StopUsing();
     }
 }
