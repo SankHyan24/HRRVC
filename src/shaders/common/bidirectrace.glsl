@@ -271,7 +271,8 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 vec3 eyeBRDF = DisneyEval(state, -r.direction, eyeNormal, eye2lightDir, eyePdf);
                 if(i==0){
                     float lightArea = lightVertices[i].direction.x;
-                    lightPdf = Dist2;
+                    lightPdf = 1.0/Dist2;
+                    // lightPdf = 1.0;
                     lightBRDF = vec3(1.0)*lightArea;
                 }
                 // lightPdf+=EPS;
@@ -281,7 +282,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 // if(eyeBRDF.x <= 0.0 || eyeBRDF.y <= 0.0 || eyeBRDF.z <= 0.0) continue; // lp=3没问题
                 // if(lightBRDF.x <= 0.0 || lightBRDF.y <= 0.0 || lightBRDF.z <= 0.0) continue; 
                 // vec3 connectionRadiance = throughput * lightRadiance ;
-                vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF * cosAtLight * cosAtEye  /(lightPdf*eyelightDist*eyelightDist) ;
+                vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF * cosAtLight * cosAtEye *lightPdf /(eyePdf) ;
                 
 #ifdef OPT_MIS_BDPT
                 // float localWeight = eyePdf * lightPdf * cosAtEye * cosAtLight;
@@ -295,11 +296,15 @@ vec4 sc_traceEyePath( in Ray ray_) {
                     radianceBidirectional+=connectionRadiance*misWeight;
                 }
             }
-            if(sampleCounter!=0)
-            radiance += radianceBidirectional/sampleCounter; ;
+            // if(sampleCounter!=0)
+            // radiance += radianceBidirectional/sampleCounter; ;
+            radiance += radianceBidirectional;
         }
 #endif
+
+#ifndef OPT_BDPT
         radiance += DirectLight(r,state,true)*throughput;
+#endif
         // scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
         // rd = scatterSample.L;
         // ro = state.fhp + normalize(rd)*EPS;

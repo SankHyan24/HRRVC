@@ -38,6 +38,7 @@ in vec2 TexCoords;
 #include common/lambert.glsl
 #include common/pathtrace.glsl
 #include sc/lightvertex.glsl
+#include sc/lightvertexseed.glsl
 #include common/bidirectrace.glsl
 /*
     

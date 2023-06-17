@@ -188,6 +188,7 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     vec3 fhp = state.fhp; // new node
     lightSample.dist = length(fhp - lightSurfacePos);
     lightSample.pdf = lightSample.dist*lightSample.dist/ (light.area*abs(dot(lightNormal, lightDirection)));
+    lightSample.dist = light.area;
     return lightSurfacePos;
 }
 vec3 SampleRectLightVertexUniform(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
@@ -305,8 +306,9 @@ void sc_constructLightPath(in float seed ) {
 
         vec3 dis = lightVertices[i].position - lightVertices[i-1].position;
         float invDist2 = 1.0/length(dis);
-        if (scatterSample.pdf > 0.0)
-            throughput *= scatterSample.f*invDist2/ (scatterSample.pdf);
+        if (scatterSample.pdf > 0.0){
+            throughput *= scatterSample.f/scatterSample.pdf;
+        }
         else
         {
             if(i+1!=LIGHTPATHLENGTH)
