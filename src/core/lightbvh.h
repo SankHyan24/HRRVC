@@ -82,14 +82,14 @@ public:
     std::vector<Point3<float>> &_pointcloud;
     std::vector<uint> orderdata;
     uint totalNodes = 0;
-
+    
     void printbvhnode(BVHBuildNode *node){
         if(node->splitAxis == 3){
             printf("leaf node: \n");
-            printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", node->bounds.pMin.x, node->bounds.pMin.y, node->bounds.pMin.z, node->bounds.pMax.x, node->bounds.pMax.y, node->bounds.pMax.z);
-            printf("primitivesOffset: %d\n", node->firstPrimOffset);
-            printf("splitAxis: %d\n", node->splitAxis);
-            printf("nPrimitives: %d\n", node->nPrimitives);
+            printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", node->bounds.pMin.x, node->bounds.pMin.y, node->bounds.pMin.z, node->bounds.pMax.x, node->bounds.pMax.y, node->bounds.pMax.z);              
+            printf("primitivesOffset: %d\n", node->firstPrimOffset);        
+            printf("splitAxis: %d\n", node->splitAxis);                 
+            printf("nPrimitives: %d\n", node->nPrimitives);             
         }
         else{
             printf("internal node: \n");
@@ -154,16 +154,16 @@ public:
         // }
 
         //print leaf nodes: 
-        for (int i = 0; i < totalNodes; i++)
-        {
-            if(nodes[i].axis == 3){
-                printf("leaf node %d: \n", i);
-                printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", nodes[i].bounds.pMin.x, nodes[i].bounds.pMin.y, nodes[i].bounds.pMin.z, nodes[i].bounds.pMax.x, nodes[i].bounds.pMax.y, nodes[i].bounds.pMax.z);
-                printf("primitivesOffset: %d\n", nodes[i].primitivesOffset);
-                printf("nPrimitives: %d\n", nodes[i].nPrimitives);
-                printf("axis: %d\n", nodes[i].axis);
-            }
-        }
+        // for (int i = 0; i < totalNodes; i++)
+        // {
+        //     if(nodes[i].axis == 3){
+        //         printf("leaf node %d: \n", i);
+        //         printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", nodes[i].bounds.pMin.x, nodes[i].bounds.pMin.y, nodes[i].bounds.pMin.z, nodes[i].bounds.pMax.x, nodes[i].bounds.pMax.y, nodes[i].bounds.pMax.z);
+        //         printf("primitivesOffset: %d\n", nodes[i].primitivesOffset);
+        //         printf("nPrimitives: %d\n", nodes[i].nPrimitives);
+        //         printf("axis: %d\n", nodes[i].axis);
+        //     }
+        // }
 
     }
 
@@ -254,7 +254,7 @@ public:
         while (toVisitOffset != 0)
         {
             const LinearBVHNode *node = &nodes[currentNodeIndex];
-            if (node->nPrimitives > 0)
+            if (node->axis == 3)
             {
 
                 ret_bounds.push_back(node->bounds);
@@ -319,7 +319,7 @@ public:
         {
             const LinearBVHNode *node = &nodes[currentNodeIndex];
 
-            if (currentDepth == depth || node->nPrimitives > 0)
+            if (currentDepth == depth || node->axis == 3)
             {
                 ret.push_back(node->bounds);
                 if (toVisitOffset == 0)

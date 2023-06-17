@@ -190,6 +190,10 @@ float rand()
 {
     pcg4d(seed); return float(seed.x) / float(0xffffffffu);
 }
+
+uint randint(){
+    pcg4d(seed); return seed.x;
+}
 /*
     FaceForward 函数将两个三分量向量 a 和 b 作为参数，如果 a 和 b 的点积为正则返回 b，否则
     返回 -b。 此函数常用于计算机图形，以确保表面法线朝向观察者。

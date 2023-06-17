@@ -210,3 +210,4 @@ void sc_constructLightPath_using_seed(inout float seed ) {
         // lightSample.direction = scatterSample.L;
     }
 }
+

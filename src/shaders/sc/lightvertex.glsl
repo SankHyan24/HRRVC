@@ -367,16 +367,31 @@ float IntersectPD(in vec3 ro, in vec3 rd, in vec3 invDir, in ivec3 dirIsNeg, in 
 }
 
 //2632
+
 float gamma(in int n){
     return (n * EPS_GAMMA ) / (1 - n * EPS_GAMMA);
 }
 
 void fetchLightBVHnode(inout LinearBVHNode node, in int index){
-    node.pmin = texelFetch(lightPathBVHTex, index * 3 + 0).xyz;
+    node.pmin = texelFetch(lightPathBVHTex, index * 3 + 0).xyz;// 2649
     node.pmax = texelFetch(lightPathBVHTex, index * 3 + 1).xyz;
     node.primitivesOffsetOrSecondChildOffset = int(texelFetch(lightPathBVHTex, index * 3 + 2).x);
     node.nPrimitives = int(texelFetch(lightPathBVHTex, index * 3 + 2).y);
     node.axis = int(texelFetch(lightPathBVHTex, index * 3 + 2).z);
+}
+
+void fetchLightBVHnodeIndex(inout int indexout, in int index){
+    int offset  =   index / 3; 
+    int rem     =   index % 3;
+    if(rem == 0){
+        indexout = int(texelFetch(lightPathBVHIndexTex, offset).x);
+    }
+    else if(rem == 1){
+        indexout = int(texelFetch(lightPathBVHIndexTex, offset).y);
+    }
+    else if(rem == 2){
+        indexout = int(texelFetch(lightPathBVHIndexTex, offset).z);
+    }
 }
 // lightPathBVHTex
 // vec3 boundpmin = texelFetch(lightPathBVHTex, leftIndex * 3 + 0).xyz

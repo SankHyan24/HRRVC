@@ -69,8 +69,8 @@ namespace GLSLPT
         lightInTex = 0;
         lightOutTex = 0;
         lightPathTex = 0;
-        lightPathBVHBuffer = 0;
         lightPathBVHTex = 0;
+        lightPathBVHIndexTex = 0;
 
         // sc
         scPreLightSize = scene->renderOptions.sc_BDPT_LIGHTPATH;
@@ -97,7 +97,6 @@ namespace GLSLPT
         delete quad;
         // Delete textures
         glDeleteTextures(1, &BVHTex);
-        glDeleteTextures(1, &lightPathBVHTex);
         glDeleteTextures(1, &vertexIndicesTex);
         glDeleteTextures(1, &verticesTex);
         glDeleteTextures(1, &normalsTex);
@@ -120,7 +119,6 @@ namespace GLSLPT
 
         // Delete buffers
         glDeleteBuffers(1, &BVHBuffer);
-        glDeleteBuffers(1, &lightPathBVHBuffer);
         glDeleteBuffers(1, &vertexIndicesBuffer);
         glDeleteBuffers(1, &verticesBuffer);
         glDeleteBuffers(1, &normalsBuffer);
@@ -147,23 +145,29 @@ namespace GLSLPT
         glDeleteTextures(1, &lightInTex);
         glDeleteTextures(1, &lightOutTex);
         glDeleteTextures(1, &lightPathTex);
+        glDeleteTextures(1, &lightPathBVHTex);
+        glDeleteTextures(1, &lightPathBVHIndexTex);
+        
+        glDeleteBuffers(1, &lightPathBVHBuffer); 
+        glDeleteBuffers(1, &lightPathBVHIndexBuffer); 
+        glDeleteBuffers(1, &lightPathBuffer);
 
-        // glDeleteBuffers(1, &lightPathBuffer);
-        // delete[] lightInPixels;
-        // for (int i = 0; i < lpnum; i++)
-        // {
-        //     for (int j = 0; j < scPreLightSize; j++)
-        //     {
-        //         delete[] lightPathNodes[i][j];
-        //     }
-        //     delete[] lightPathNodes[i];
-        // }
-        // delete[] lightPathNodes;
+        delete[] lightInPixels;
+        for (int i = 0; i < lpnum; i++)
+        {
+            for (int j = 0; j < scPreLightSize; j++)
+            {
+                delete[] lightPathNodes[i][j];
+            }
+            delete[] lightPathNodes[i];
+        }
+        delete[] lightPathNodes;
 
-        // for (int i = 0; i < lpnum; i++)
-        // {
-        //     delete[] lightPathInfos[i];
-        // }
+        for (int i = 0; i < lpnum; i++)
+        {
+            delete[] lightPathInfos[i];
+        }
+        delete [] lightPathInfos; 
     }
 
     void Renderer::ScRegenerateLocalBuffer()
@@ -186,12 +190,8 @@ namespace GLSLPT
         {
             lightPathInfos[i] = new LightInfo[scPreLightSize];
         }
-        glGenBuffers(1, &lightPathBuffer);
-        glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
-        glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0][0], GL_STATIC_DRAW);
-        glGenTextures(1, &lightPathTex);
-        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
+
+
         glGenTextures(1, &lightInTex);
         glBindTexture(GL_TEXTURE_2D, lightInTex);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lpnum, scPreLightSize, 0, GL_RGB, GL_BYTE, lightInPixels);
@@ -351,6 +351,18 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, envMapTex);
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, envMapCDFTex);
+
+        // wyd:
+        glActiveTexture(GL_TEXTURE11);
+        glBindTexture(GL_TEXTURE_2D, lightInTex);
+        glActiveTexture(GL_TEXTURE12);
+        glBindTexture(GL_TEXTURE_2D, lightOutTex);
+        glActiveTexture(GL_TEXTURE13);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+        glActiveTexture(GL_TEXTURE14);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
+        glActiveTexture(GL_TEXTURE15);
+        glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHIndexTex);
     }
 
     void Renderer::ResizeRenderer()
@@ -644,6 +656,8 @@ namespace GLSLPT
         // wyd:
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13);
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHTex"), 14);
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHIndexTex"), 15);
+
         pathTraceShader->StopUsing();
 
         pathTraceShaderLowRes->Use();
@@ -671,6 +685,8 @@ namespace GLSLPT
         // wyd:
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathTex"), 13);
         glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHTex"), 14);
+        glUniform1i(glGetUniformLocation(shaderObject, "lightPathBVHIndexTex"), 15);
+
         pathTraceShaderLowRes->StopUsing();
 
         {
@@ -793,6 +809,13 @@ namespace GLSLPT
                 }
             }
 
+            glGenBuffers(1, &lightPathBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0][0], GL_STATIC_DRAW);
+            glGenTextures(1, &lightPathTex);
+            glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
+
             // wyd:
             // print to check lightPathNodes
             // freopen("out.txt", "w", stdout);
@@ -875,6 +898,8 @@ namespace GLSLPT
 
             // viewer->spin();
 
+
+
             auto beforeTime = std::chrono::steady_clock::now();
 
             BVH_ACC1 bvh_lightpath(pts, 0.03, 0.07);
@@ -883,12 +908,22 @@ namespace GLSLPT
             printf("bvh construction time: %f ms\n", duration_millsecond);
             LinearBVHNode *bvh_nodes = bvh_lightpath.nodes;
 
+
             glGenBuffers(1, &lightPathBVHBuffer);
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHBuffer);
             glBufferData(GL_TEXTURE_BUFFER, sizeof(LinearBVHNode) * bvh_lightpath.totalNodes, &bvh_nodes[0], GL_STATIC_DRAW);
             glGenTextures(1, &lightPathBVHTex);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBVHBuffer);
+
+            // TODO: 
+
+            glGenBuffers(1, &lightPathBVHIndexBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHIndexBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(int) * bvh_lightpath.totalNodes, &bvh_lightpath.orderdata[0], GL_STATIC_DRAW);
+            glGenTextures(1, &lightPathBVHIndexTex);
+            glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHIndexTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32I, lightPathBVHIndexBuffer);
 
             delete[] img;
 

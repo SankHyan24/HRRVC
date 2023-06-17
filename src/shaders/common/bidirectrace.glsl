@@ -329,3 +329,309 @@ vec4 sc_traceEyePath( in Ray ray_) {
     return vec4(radiance, 1.0);
 }
 
+// int depth = 1;
+// float scale = 1 + 2 * gamma(3);
+
+bool intersectBB(in vec3 ro, in vec3 rd, in float range, in LinearBVHNode bvh){
+    vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
+    ivec3 dirIsNeg = ivec3(
+        int(invDir.x < 0),
+        int(invDir.y < 0),
+        int(invDir.z < 0)
+    );
+    vec3 boundmin = bvh.pmin; 
+    vec3 boundmax = bvh.pmax;
+
+    float tMin = (boundmin.x - ro.x) * invDir.x; //2603 line
+    float tMax = (boundmax.x - ro.x) * invDir.x;
+    float tyMin = (boundmin.y - ro.y) * invDir.y;
+    float tyMax = (boundmax.y - ro.y) * invDir.y;
+
+    float scale = 1 + 2 * gamma(3);
+    tMax *= scale;
+    tyMax *= scale;
+
+    if (tMin > tyMax || tyMin > tMax)
+        return false;
+    if (tyMin > tMin)
+        tMin = tyMin;
+    if (tyMax < tMax)
+        tMax = tyMax;
+
+    // Check for ray intersection against $z$ slab
+    float tzMin = (boundmin.z - ro.z) * invDir.z;
+    float tzMax = (boundmax.z - ro.z) * invDir.z;
+
+    tzMax *= scale;
+    if (tMin > tzMax || tzMin > tMax)
+        return false;
+    if (tzMin > tMin)
+        tMin = tzMin;
+    if (tzMax < tMax)
+        tMax = tzMax;
+
+    return (tMax > 0) && (tMin < range);
+}
+
+struct BVHNodeRecord{
+    int nodeIndex;
+    float randomNumberMin;
+    float infimum;
+};
+
+struct EyeNode{
+    vec3 Pos;
+    vec3 Dir;
+    vec3 Normal;
+    Material mat;
+};
+
+vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
+    vec3 connectionRadiance = vec3(23.0);
+    return connectionRadiance;
+    if(lightnode.avaliable == 0) return connectionRadiance;
+    // light vertex information
+    vec3 lightRadiance = lightnode.radiance;
+    vec3 lightPos = lightnode.position  ;
+    vec3 lightNormal = normalize(lightnode.normal);
+    vec3 lightDirection = lightnode.direction;
+    Material lightMat = lightnode.mat;
+    // eye vertex information
+    vec3 eyePos = eyenode.Pos;
+    vec3 eyeNormal = eyenode.Normal;
+    vec3 eyeDirection = eyenode.Dir;
+    Material eyeMat = eyenode.mat;
+
+    vec3 eye2lightDir = normalize(lightPos - eyePos);
+    vec3 light2eyeDir = -eye2lightDir;
+
+    // cosine detection
+    float cosAtLight = dot(lightNormal, light2eyeDir);
+    float cosAtEye = dot(eyeNormal, eye2lightDir);
+    if(cosAtEye<0.0||cosAtLight<0.0) return connectionRadiance;
+    if(cosAtEye*cosAtLight<EPS) return connectionRadiance;
+
+    // shadow ray test
+    Ray shadowRay = Ray(eyePos, eye2lightDir);
+    float dist = length (lightPos - eyePos);
+    if(AnyHit(shadowRay, dist- EPS))return connectionRadiance;
+
+    State shadowState;
+    shadowState.mat = lightMat;
+    shadowState.eta = lightMat.ior;
+    State eyeState;
+    eyeState.mat = eyeMat;
+    eyeState.eta = eyeMat.ior;
+
+    // get brdf
+    float lightPdf, eyePdf, Dist2 = dist * dist;
+    vec3 lightBRDF = DisneyEval(shadowState, -lightDirection, lightNormal, light2eyeDir, lightPdf);
+    vec3 eyeBRDF = DisneyEval(eyeState, -eyeDirection, eyeNormal, eye2lightDir, eyePdf);
+
+    // the first light cannot be the vertex!
+
+    if(lightPdf <= 0.0 || eyePdf <= 0.0) return connectionRadiance;
+
+
+    connectionRadiance += lightRadiance * eyeBRDF * lightBRDF * cosAtEye *cosAtLight * lightPdf / eyePdf;
+
+    return connectionRadiance;
+
+}
+
+vec4 HRRVC( in Ray ray_) { 
+    vec3 ro = ray_.origin; 
+    vec3 rd = ray_.direction;
+
+    State state; 
+    vec3 radiance = vec3(0.);
+    vec3 throughput = vec3(1.); 
+    LightSampleRec lightSample;
+    ScatterSampleRec scatterSample;
+    Light light;
+    
+    bool hit = false; 
+    vec3 curnormal = rd;
+    
+    for( int j=0; j<EYEPATHLENGTH; ++j ) {
+        
+
+        Material mat; 
+        
+        Ray r = Ray(ro, rd); 
+        hit = ClosestHit(r, state, lightSample); 
+
+        // if not hit, return background color
+        if(!hit){
+            break;
+        }
+
+        // if hit light, return light color
+        if(state.isEmitter){
+            float misWeight = 1.0;
+            if (j > 0){
+                misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
+            }
+            radiance += misWeight * throughput * lightSample.emission;
+            break;
+        }
+
+        GetMaterial(state, r);
+        mat = state.mat;
+        curnormal = state.ffnormal;
+        // Sample BRDF
+        scatterSample.f = DisneySample(state, -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
+        rd = scatterSample.L;
+        ro = state.fhp + normalize(rd)*EPS;
+
+        EyeNode eye_;
+        eye_.Dir = rd;
+        eye_.Pos = ro;
+        eye_.Normal = curnormal;
+        eye_.mat = mat;
+
+
+
+        vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
+        ivec3 dirIsNeg = ivec3(
+            int(invDir.x < 0),
+            int(invDir.y < 0),
+            int(invDir.z < 0)
+        );
+        
+        // intersect bvh node
+        BVHNodeRecord nodesToVisit[1024]; //stack
+        for(int i = 0; i < 1024; i++){
+            nodesToVisit[i].nodeIndex = -1;
+            nodesToVisit[i].randomNumberMin = -1.0;
+            nodesToVisit[i].infimum = -1.0;
+        }
+
+        int stackLevel = 0;
+        int currentNodeIndex = 0;
+        int leftnode_index = 1;
+        int rightnode_index;
+        int currentdepth = 0;
+
+        LinearBVHNode bvhnode; 
+        fetchLightBVHnode(bvhnode, currentNodeIndex); 
+
+        float randomNumberMin = rand()/ bvhnode.nPrimitives ;
+        float infimum = 1.0f / bvhnode.nPrimitives;
+
+        vec3 result = vec3(0.0);
+
+        // constant value in R(omega; z. xi)
+        float ConstantValInGenRange = 1.0; 
+
+        
+        
+        while(true){
+            LinearBVHNode bvhnode; 
+            fetchLightBVHnode(bvhnode, currentNodeIndex); 
+
+            if(bvhnode.axis != 3) // bvh node is internal node
+            {
+                LinearBVHNode childL;
+                LinearBVHNode childR;
+                rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset; 
+                fetchLightBVHnode(childL, leftnode_index); 
+                fetchLightBVHnode(childR, rightnode_index);
+                float rfloat = rand(); 
+                uint ruint = randint(); 
+                int totalLeafCount = bvhnode.nPrimitives; 
+                
+                bool transmitToLeft = ruint % uint(totalLeafCount) < uint(childL.nPrimitives);
+                int leafCount = transmitToLeft ? childR.nPrimitives: childL.nPrimitives; 
+                float stratumSize = (1.0f - infimum ) / leafCount ;
+                float supremum = infimum + stratumSize ;
+                float newRandomNumberMin = infimum + stratumSize * rfloat ;
+                
+                float randomNumberMinL = transmitToLeft ? randomNumberMin : newRandomNumberMin ;
+                float randomNumberMinR = transmitToLeft ? newRandomNumberMin : randomNumberMin ;
+
+                float AcceptRangeL = sqrt(ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) / randomNumberMinL);
+                float AcceptRangeR = sqrt(ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) / randomNumberMinR);
+
+                bool hitL = intersectBB(ro, rd, AcceptRangeL, childL);
+                bool hitR = intersectBB(ro, rd, AcceptRangeR, childR);
+
+                if(hitL && hitR) {
+                    currentNodeIndex = transmitToLeft ? leftnode_index : rightnode_index ;
+                    nodesToVisit[ stackLevel ].nodeIndex = transmitToLeft ? rightnode_index : leftnode_index  ;
+                    nodesToVisit[ stackLevel ]. randomNumberMin = newRandomNumberMin ;
+                    nodesToVisit[ stackLevel ]. infimum = supremum ;
+                    ++ stackLevel ;
+                    continue ;
+                } else if(hitL) {
+                    currentNodeIndex = leftnode_index ;
+                    if(! transmitToLeft ) {
+                        randomNumberMin = newRandomNumberMin ;
+                        infimum = supremum ;
+                        
+                    }
+                    continue ;
+                } 
+                else if(hitR) {
+                    currentNodeIndex = rightnode_index ;
+                    if( transmitToLeft ) {
+                        randomNumberMin = newRandomNumberMin ;
+                        infimum = supremum ;
+                    }
+                    continue ;
+                } 
+            }
+            else // bvh node is leaf node
+            {   
+                // sc :cannot enter this block
+                radiance += vec3(100.0);
+                int leafIndex = currentNodeIndex; 
+                int firstPrimOffset = bvhnode.primitivesOffsetOrSecondChildOffset;
+                int primCount = bvhnode.nPrimitives;
+
+                // current bvh node = bvhnode
+                int index; 
+                fetchLightBVHnodeIndex(index, firstPrimOffset); 
+                for(int i = 0; i < primCount; i++){
+                    LightPathNode node; 
+                    GetLightPathNodeInfo(node, index + i); 
+                    
+
+                    // vertex connection
+                    vec3 connect_radiance = VertexConnect(node, eye_);
+
+                    float misWeight;
+                    float weight;
+
+                    if(connect_radiance.x>0.0||connect_radiance.y>0.0||connect_radiance.z>0.0)
+                        radiance += throughput * connect_radiance * weight;
+    // www;// 3342
+                }
+            }
+            if(stackLevel == 0) break;
+
+            BVHNodeRecord stackElement = nodesToVisit[ stackLevel - 1 ];
+            currentNodeIndex = stackElement.nodeIndex;
+            randomNumberMin = stackElement.randomNumberMin;
+            infimum = stackElement.infimum;
+            // out result 
+        }
+
+        if (scatterSample.pdf > 0.0)
+            throughput *= scatterSample.f / scatterSample.pdf;
+        else break; 
+#ifdef OPT_RR
+        // Russian roulette
+
+        if (j >= OPT_RR_DEPTH)
+        {
+            float q = min(max(throughput.x, max(throughput.y, throughput.z)) + 0.001, 0.95);
+            if (rand() > q)
+                break;
+            throughput /= q;
+        }
+#endif
+    }
+    return vec4(radiance, 1.0); 
+}
+
