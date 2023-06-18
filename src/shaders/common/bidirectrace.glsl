@@ -755,8 +755,10 @@ vec4 HRRVC( in Ray ray_) {
         int rightnode_index;
         int currentdepth = 0;
 
+        // root node
         LinearBVHNode bvhnode; 
         fetchLightBVHnode(bvhnode, currentNodeIndex); 
+
 
         float randomNumberMin = rand()/ bvhnode.nPrimitives ;
         float infimum = 1.0f / bvhnode.nPrimitives;
@@ -777,15 +779,19 @@ vec4 HRRVC( in Ray ray_) {
             
             if(bvhnode.axis != 3) // bvh node is internal node
             {
-                
+                // test pass
                 LinearBVHNode childL;
                 LinearBVHNode childR;
+                leftnode_index = currentNodeIndex + 1; 
                 rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset; 
                 fetchLightBVHnode(childL, leftnode_index); 
                 fetchLightBVHnode(childR, rightnode_index);
+                
+
+
                 float rfloat = rand(); 
                 uint ruint = randint(); 
-                int totalLeafCount = bvhnode.nPrimitives; 
+                int totalLeafCount = bvhnode.nPrimitives; // in first level is 6000
                 
                 bool transmitToLeft = ruint % uint(totalLeafCount) < uint(childL.nPrimitives);
                 int leafCount = transmitToLeft ? childR.nPrimitives: childL.nPrimitives; 
