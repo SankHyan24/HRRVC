@@ -889,21 +889,21 @@ namespace GLSLPT
             //     cloud.points[i].y = pts[i].y;
             //     cloud.points[i].z = pts[i].z;
             // }
-            //
+            
             // pcl::io::savePCDFileASCII("selfgen.pcd", cloud);
-            //
+            
             // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
-            //
+            
             // if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1) //*打开点云文件
             // {
             //     PCL_ERROR("Couldn't read file test_pcd.pcd\n");
             // }
-            //
+            
             // pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("viewer"));
             // viewer->addCoordinateSystem(1);
-            //
+            
             // viewer->addPointCloud(cloud2);
-            //
+            
             // viewer->spin();
 
            
@@ -919,7 +919,7 @@ namespace GLSLPT
             for(int i = 0; i < bvh_lightpath.totalNodes; i++){
                 LinearBVHNodeForTransmit tmp;
                 tmp.bounds = bvh_lightpath.nodes[i].bounds;
-                tmp.primitivesOffset = float(bvh_lightpath.nodes[i].primitivesOffset);
+                tmp.primitivesOffsetOrSecondChildOffset = float(bvh_lightpath.nodes[i].primitivesOffset);
                 tmp.nPrimitives = float(bvh_lightpath.nodes[i].nPrimitives);
                 tmp.axis = float(bvh_lightpath.nodes[i].axis);
                 Linearnodefortex.push_back(tmp);
@@ -933,7 +933,7 @@ namespace GLSLPT
                 Linearnodefortex[i].bounds.pMax.x, 
                 Linearnodefortex[i].bounds.pMax.y, 
                 Linearnodefortex[i].bounds.pMax.z);
-                printf("Linearnodefortex[%d].primitivesOffset: %f\n", i, Linearnodefortex[i].primitivesOffset);
+                printf("Linearnodefortex[%d].primitivesOffset: %f\n", i, Linearnodefortex[i].primitivesOffsetOrSecondChildOffset);
                 printf("Linearnodefortex[%d].nPrimitives: %f\n", i, Linearnodefortex[i].nPrimitives);
                 printf("Linearnodefortex[%d].axis: %f\n", i, Linearnodefortex[i].axis);
             }
@@ -943,6 +943,9 @@ namespace GLSLPT
             std::vector<float> orderdatafortex; 
             for(int i = 0; i < bvh_lightpath.totalNodes; i++){
                 orderdatafortex.push_back(float(bvh_lightpath.orderdata[i]));
+            }
+            while(orderdatafortex.size() % 3 != 0){
+                orderdatafortex.push_back(-1.0f);
             }
             // output bvh_lightpath.orderdata for debug
             for(int i = 0; i < bvh_lightpath.totalNodes; i++){
@@ -961,7 +964,7 @@ namespace GLSLPT
 
             // TODO: 
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHIndexBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, sizeof(int) * bvh_lightpath.totalNodes, &orderdatafortex[0], GL_STATIC_DRAW);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(float) * orderdatafortex.size(), &orderdatafortex[0], GL_STATIC_DRAW);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHIndexTex);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBVHIndexBuffer);
 

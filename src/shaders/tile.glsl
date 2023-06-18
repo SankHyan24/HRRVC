@@ -80,13 +80,13 @@ void main(void)
 #ifdef OPT_BDPT
     // sc_constructLightPath( seed );
     
-    pixelColor = HRRVC( ray );
     // pixelColor = sc_traceEyePath(ray);
     // pixelColor = traceEyePath(ray);
     // pixelColor = sc_traceEyePath(ray);
+    pixelColor = testFetchData( ray,seed );
 #else
     pixelColor = HRRVC( ray );
-    // pixelColor = testFetchData( ray,seed );
+    // pixelColor = HRRVC( ray );
     // pixelColor = testhrrvc( ray );
     
     // pixelColor = PathTrace(ray);

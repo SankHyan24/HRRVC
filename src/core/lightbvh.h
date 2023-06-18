@@ -68,11 +68,8 @@ struct LinearBVHNode
 struct LinearBVHNodeForTransmit
 {
     Bounds3<float> bounds; 
-    union
-    {
-        float primitivesOffset;  // leaf
-        float secondChildOffset; // interior 
-    };
+    
+    float primitivesOffsetOrSecondChildOffset;  // leaf
     float nPrimitives; // 0 -> interior node
     float axis;         // interior node: xyz
 };
