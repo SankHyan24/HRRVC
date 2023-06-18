@@ -38,7 +38,7 @@
 #include <pcl/visualization/pcl_visualizer.h>
 // #include <boost/thread/thread.hpp>
 
-#define lpnum 2000
+#define lpnum 50000
 
 char *checkLinkErrors(uint32_t prog, int len, char *buffer)
 {
@@ -875,9 +875,9 @@ namespace GLSLPT
             // {
             //     printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
             // }
-            //
-            // point cloud visualization
-            //
+            
+            // // point cloud visualization
+            // //
             // pcl::PointCloud<pcl::PointXYZ> cloud;
             // cloud.width = lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH;
             // cloud.height = 1;
@@ -910,7 +910,7 @@ namespace GLSLPT
 
             auto beforeTime = std::chrono::steady_clock::now();
 
-            BVH_ACC1 bvh_lightpath(pts, 0.03, 0.07);
+            BVH_ACC1 bvh_lightpath(pts, 0.03, 0.06);
             auto afterTime = std::chrono::steady_clock::now();
             double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
             printf("bvh construction time: %f ms\n", duration_millsecond);
@@ -926,17 +926,17 @@ namespace GLSLPT
             }
 
             // output for debug
-            for(int i = 0; i < bvh_lightpath.totalNodes; i++){
-                printf("Linearnodefortex[%d].bounds: (%f, %f, %f) (%f, %f, %f)\n", i, Linearnodefortex[i].bounds.pMin.x, 
-                Linearnodefortex[i].bounds.pMin.y, 
-                Linearnodefortex[i].bounds.pMin.z, 
-                Linearnodefortex[i].bounds.pMax.x, 
-                Linearnodefortex[i].bounds.pMax.y, 
-                Linearnodefortex[i].bounds.pMax.z);
-                printf("Linearnodefortex[%d].primitivesOffset: %f\n", i, Linearnodefortex[i].primitivesOffsetOrSecondChildOffset);
-                printf("Linearnodefortex[%d].nPrimitives: %f\n", i, Linearnodefortex[i].nPrimitives);
-                printf("Linearnodefortex[%d].axis: %f\n", i, Linearnodefortex[i].axis);
-            }
+            // for(int i = 0; i < bvh_lightpath.totalNodes; i++){
+            //     printf("Linearnodefortex[%d].bounds: (%f, %f, %f) (%f, %f, %f)\n", i, Linearnodefortex[i].bounds.pMin.x, 
+            //     Linearnodefortex[i].bounds.pMin.y, 
+            //     Linearnodefortex[i].bounds.pMin.z, 
+            //     Linearnodefortex[i].bounds.pMax.x, 
+            //     Linearnodefortex[i].bounds.pMax.y, 
+            //     Linearnodefortex[i].bounds.pMax.z);
+            //     printf("Linearnodefortex[%d].primitivesOffset: %f\n", i, Linearnodefortex[i].primitivesOffsetOrSecondChildOffset);
+            //     printf("Linearnodefortex[%d].nPrimitives: %f\n", i, Linearnodefortex[i].nPrimitives);
+            //     printf("Linearnodefortex[%d].axis: %f\n", i, Linearnodefortex[i].axis);
+            // }
 
             
 

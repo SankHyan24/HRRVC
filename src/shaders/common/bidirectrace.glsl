@@ -332,6 +332,17 @@ vec4 sc_traceEyePath( in Ray ray_) {
 // int depth = 1;
 // float scale = 1 + 2 * gamma(3);
 
+bool wyd_intersectBB(in vec3 ro, in vec3 rd, in float range, in vec3 pmin, in vec3 pmax){
+    vec3 invRd = 1.0 / rd;
+    vec3 t1 = (pmin - ro) * invRd;
+    vec3 t2 = (pmax - ro) * invRd;
+    vec3 tmin = min(t1, t2);
+    vec3 tmax = max(t1, t2);
+    float tenter = max(max(tmin.x, tmin.y), tmin.z);
+    float texit = min(min(tmax.x, tmax.y), tmax.z);
+    return tenter < texit && tenter < range;
+}
+
 bool sc_intersectBB(in vec3 ro, in vec3 rd, in float range, in LinearBVHNode bvh){
     vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
     ivec3 dirIsNeg = ivec3(
@@ -546,11 +557,10 @@ void fetchLightBVHnodeIndex(inout int indexout, in int index){
 
 vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 connectionRadiance = vec3(0.0);
-    if(lightnode.avaliable == 0) return connectionRadiance;
+    return vec3(0.01,0.01,0.01); 
+    // if(lightnode.avaliable == 0) return connectionRadiance;
     // light vertex information
-    return lightnode.mat.baseColor; 
-
-
+    // return lightnode.mat.baseColor; 
 
     vec3 lightRadiance = lightnode.radiance;
     vec3 lightPos = lightnode.position  ;
@@ -562,7 +572,7 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 eyeNormal = eyenode.Normal;
     vec3 eyeDirection = eyenode.Dir;
     Material eyeMat = eyenode.mat;
-    return lightRadiance;
+    // return lightRadiance;
 
     vec3 eye2lightDir = normalize(lightPos - eyePos);
     vec3 light2eyeDir = -eye2lightDir;
@@ -576,7 +586,7 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     // shadow ray test
     Ray shadowRay = Ray(eyePos, eye2lightDir);
     float dist = length (lightPos - eyePos);
-    if(AnyHit(shadowRay, dist- EPS))return connectionRadiance;
+    // if(AnyHit(shadowRay, dist- EPS))return connectionRadiance;
 
     State shadowState;
     shadowState.mat = lightMat;
@@ -595,8 +605,8 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     if(lightPdf <= 0.0 || eyePdf <= 0.0) return connectionRadiance;
     connectionRadiance += lightRadiance  * eyeBRDF * lightBRDF * cosAtEye *cosAtLight * lightPdf / eyePdf ;
 
-    return connectionRadiance;
-    return lightRadiance;
+    // return connectionRadiance;
+    // return lightRadiance;
 
 }
 
@@ -607,19 +617,26 @@ vec4 testFetchData(in Ray ray_,inout float seed){
     // int LightBVHnodeIndex; 
     // fetchLightBVHnodeIndex(LightBVHnodeIndex, 4);
 
-    LightPathNode lnode; 
+    // LightPathNode lnode; 
     // seed = gl_FragCoord.x/10;
     // int yy = int(gl_FragCoord.y);
     // int randnum = int(hash1(seed)*199)%10000;
-    GetLightPathNodeInfo(lnode, 1);
+    // GetLightPathNodeInfo(lnode, 1);
 
-    return vec4(lnode.mat.baseColor, 1.0); 
+    // return vec4(lnode.mat.baseColor, 1.0); 
     // return vec4(vec3(LightBVHnodeIndex / 10000.0), 1.0);
     // return vec4(node.pmax, 1.0);
 
     // int LightBVHnodeIndex; 
     // fetchLightBVHnodeIndex(LightBVHnodeIndex, 300);
     // return vec4(vec3(LightBVHnodeIndex / 6000.0), 1.0);
+
+    // vec3 ro = ray_.origin;
+    // vec3 rd = ray_.direction;
+    // bool hit = wyd_intersectBB(ro, rd, 1000.0, vec3(0.2), vec3(0.4));
+    // return vec4(vec3(hit), 1.0);
+
+    return vec4(0.0);
 }
 
 
@@ -709,7 +726,7 @@ vec4 HRRVC( in Ray ray_) {
         vec3 result = vec3(0.0);
 
         // constant value in R(omega; z. xi)
-        float ConstantValInGenRange = 0.001; 
+        float ConstantValInGenRange = 0.0001; 
 
         
         int counter=0;
@@ -730,7 +747,7 @@ vec4 HRRVC( in Ray ray_) {
                 fetchLightBVHnode(childL, leftnode_index); 
                 fetchLightBVHnode(childR, rightnode_index);
                 
-
+                
                 float rfloat = rand(); 
                 uint ruint = randint(); 
                 int totalLeafCount = bvhnode.nPrimitives; // in first level is 6000
@@ -748,8 +765,12 @@ vec4 HRRVC( in Ray ray_) {
                 float AcceptRangeL = sqrt(ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) / randomNumberMinL);
                 float AcceptRangeR = sqrt(ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) / randomNumberMinR);
 
-                bool hitL = sc_intersectBB(ro, rd, AcceptRangeL, childL);
-                bool hitR = sc_intersectBB(ro, rd, AcceptRangeR, childR);
+                // bool hitL = sc_intersectBB(ro, rd, AcceptRangeL, childL);
+                // bool hitR = sc_intersectBB(ro, rd, AcceptRangeR, childR);
+
+                bool hitL = wyd_intersectBB(ro, rd, AcceptRangeL, childL.pmin, childL.pmax);
+                bool hitR = wyd_intersectBB(ro, rd, AcceptRangeR, childR.pmin, childR.pmax);
+
 
                 if(hitL && hitR) {
                     currentNodeIndex = transmitToLeft ? leftnode_index : rightnode_index ;
@@ -782,10 +803,10 @@ vec4 HRRVC( in Ray ray_) {
                 int leafIndex = currentNodeIndex; 
                 int firstPrimOffset = bvhnode.primitivesOffsetOrSecondChildOffset;
                 int primCount = bvhnode.nPrimitives;
-
+                
                 // current bvh node = bvhnode
                 int index; 
-                
+                vec3 connradiancesum = vec3(0.0);
                 for(int i = 0; i < primCount; i++){
                     LightPathNode node; 
                     fetchLightBVHnodeIndex(index, firstPrimOffset + i); 
@@ -796,19 +817,21 @@ vec4 HRRVC( in Ray ray_) {
                         // return vec4(vec3(0.0,0.0,1.0), 1.0);
                     // vertex connection
 
-                    vec3 connect_radiance = VertexConnect(node, eye_);
+                    vec3 connect_radiance = vec3(0.01);
+                    // vec3 connect_radiance = VertexConnect(node, eye_);
 
                     float misWeight;
                     float weight=1.0;
-
+                    
                     if(connect_radiance.x>0.0||connect_radiance.y>0.0||connect_radiance.z>0.0)
-                        radiance += throughput *connect_radiance ;
+                        connradiancesum += throughput * connect_radiance ;
                         // radiance += vec3(node.matID == 5? 5.0:0.0 , 0.0, 0.0);
                     
     // www;// 3342  
                     // break; 
                 }
-                radiance /= sqrt(float(primCount));
+                connradiancesum =  connradiancesum / float(primCount) * 10;
+                radiance += connradiancesum;
             }
             if(stackLevel == 0) break;
             
