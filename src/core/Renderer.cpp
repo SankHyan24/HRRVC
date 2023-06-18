@@ -129,6 +129,8 @@ namespace GLSLPT
         glDeleteFramebuffers(1, &accumFBO);
         glDeleteFramebuffers(1, &outputFBO);
 
+        ScReleaseLocalBuffer();
+
         // Delete shaders
         delete pathTraceShader;
         delete pathTraceShaderLowRes;
@@ -203,6 +205,15 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, lightOutTex);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, lpnum, scPreLightSize * 7); // wyd update light
         glBindTexture(GL_TEXTURE_2D, 0);
+
+        // glGenTextures(1, &lightPathTex);
+        // glGenTextures(1, &lightPathBVHTex);
+        // glGenTextures(1, &lightPathBVHIndexTex);
+
+        // glGenBuffers(1, &lightPathBuffer);
+        // glGenBuffers(1, &lightPathBVHBuffer);
+        // glGenBuffers(1, &lightPathBVHIndexBuffer);
+        
     }
 
     void Renderer::InitGPUDataBuffers()
@@ -300,7 +311,7 @@ namespace GLSLPT
         }
 
         // wyd:
-        ScRegenerateLocalBuffer();
+        // ScRegenerateLocalBuffer();
         // wyd:
 
         // glGenBuffers(1, &lightPathBuffer);
@@ -353,6 +364,14 @@ namespace GLSLPT
         glBindTexture(GL_TEXTURE_2D, envMapCDFTex);
 
         // wyd:
+        glGenTextures(1, &lightPathTex);
+        glGenTextures(1, &lightPathBVHTex);
+        glGenTextures(1, &lightPathBVHIndexTex);
+
+        glGenBuffers(1, &lightPathBuffer);
+        glGenBuffers(1, &lightPathBVHBuffer);
+        glGenBuffers(1, &lightPathBVHIndexBuffer);
+
         glActiveTexture(GL_TEXTURE11);
         glBindTexture(GL_TEXTURE_2D, lightInTex);
         glActiveTexture(GL_TEXTURE12);
@@ -510,7 +529,7 @@ namespace GLSLPT
 
     void Renderer::InitShaders()
     {
-        ScReleaseLocalBuffer();
+        // ScReleaseLocalBuffer();
         ScRegenerateLocalBuffer();
         ShaderInclude::ShaderSource vertexShaderSrcObj = ShaderInclude::load(shadersDirectory + "common/vertex.glsl");
         ShaderInclude::ShaderSource pathTraceShaderSrcObj = ShaderInclude::load(shadersDirectory + "tile.glsl");
@@ -754,6 +773,7 @@ namespace GLSLPT
             glBindTexture(GL_TEXTURE_2D, lightOutTex);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, img);
+            sc_computeShader->StopUsing();
 
             /*
                 struct LightInfo
@@ -809,12 +829,7 @@ namespace GLSLPT
                 }
             }
 
-            glGenBuffers(1, &lightPathBuffer);
-            glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0][0], GL_STATIC_DRAW);
-            glGenTextures(1, &lightPathTex);
-            glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
-            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
+
 
             // wyd:
             // print to check lightPathNodes
@@ -867,9 +882,9 @@ namespace GLSLPT
             // {
             //     printf("pts[%d] = %f %f %f\n", i, pts[i].x, pts[i].y, pts[i].z);
             // }
-
+            //
             // point cloud visualization
-
+            //
             // pcl::PointCloud<pcl::PointXYZ> cloud;
             // cloud.width = lpnum * scene->renderOptions.sc_BDPT_LIGHTPATH;
             // cloud.height = 1;
@@ -881,23 +896,22 @@ namespace GLSLPT
             //     cloud.points[i].y = pts[i].y;
             //     cloud.points[i].z = pts[i].z;
             // }
-
+            //
             // pcl::io::savePCDFileASCII("selfgen.pcd", cloud);
-
+            //
             // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
-
+            //
             // if (pcl::io::loadPCDFile<pcl::PointXYZ>("selfgen.pcd", *cloud2) == -1) //*打开点云文件
             // {
             //     PCL_ERROR("Couldn't read file test_pcd.pcd\n");
             // }
-
+            //
             // pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("viewer"));
             // viewer->addCoordinateSystem(1);
-
+            //
             // viewer->addPointCloud(cloud2);
-
+            //
             // viewer->spin();
-
 
 
             auto beforeTime = std::chrono::steady_clock::now();
@@ -906,28 +920,89 @@ namespace GLSLPT
             auto afterTime = std::chrono::steady_clock::now();
             double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
             printf("bvh construction time: %f ms\n", duration_millsecond);
-            LinearBVHNode *bvh_nodes = bvh_lightpath.nodes;
 
 
-            glGenBuffers(1, &lightPathBVHBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0][0], GL_STATIC_DRAW);
+            glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
+
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, sizeof(LinearBVHNode) * bvh_lightpath.totalNodes, &bvh_nodes[0], GL_STATIC_DRAW);
-            glGenTextures(1, &lightPathBVHTex);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(LinearBVHNode) * bvh_lightpath.totalNodes, &bvh_lightpath.nodes[0], GL_STATIC_DRAW);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBVHBuffer);
-
+            
             // TODO: 
-
-            glGenBuffers(1, &lightPathBVHIndexBuffer);
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHIndexBuffer);
             glBufferData(GL_TEXTURE_BUFFER, sizeof(int) * bvh_lightpath.totalNodes, &bvh_lightpath.orderdata[0], GL_STATIC_DRAW);
-            glGenTextures(1, &lightPathBVHIndexTex);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHIndexTex);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32I, lightPathBVHIndexBuffer);
 
+
+
+            // print bvh
+            // struct LinearBVHNode
+            //     {
+            //         Bounds3<float> bounds; 
+            //         union
+            //         {
+            //             uint primitivesOffset;  // leaf
+            //             uint secondChildOffset; // interior 
+            //         };
+            //         uint32_t nPrimitives; // 0 -> interior node
+            //         uint32_t axis;         // interior node: xyz
+                    
+            //     };
+
+            //     struct LightInfo
+            //     {
+            //         Vec3 position;
+            //         Vec3 radiance;
+            //         Vec3 normal;
+            //         Vec3 ffnormal;
+            //         Vec3 direction;
+            //         float eta;
+            //         int matID;
+            //         int avaliable;
+            //         Vec2 texCoods;
+            //         float matroughness;
+            //     };
+            // {
+            //     for (int i = 0; i < bvh_lightpath.totalNodes; i++)
+            //     {
+            //         // output LinearBVHNode infomations
+            //         printf("node %d: \n", i);
+            //         printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", bvh_lightpath.nodes[i].bounds.pMin.x, 
+            //         bvh_lightpath.nodes[i].bounds.pMin.y, 
+            //         bvh_lightpath.nodes[i].bounds.pMin.z, 
+            //         bvh_lightpath.nodes[i].bounds.pMax.x, 
+            //         bvh_lightpath.nodes[i].bounds.pMax.y, 
+            //         bvh_lightpath.nodes[i].bounds.pMax.z);
+            //         printf("primitivesOffset or secondchildoffset: %d\n", 
+            //         bvh_lightpath.nodes[i].primitivesOffset);
+            //         printf("nPrimitives: %d\n", 
+            //         bvh_lightpath.nodes[i].nPrimitives);
+            //         printf("axis: %d\n", 
+            //         bvh_lightpath.nodes[i].axis);
+
+            //         if(bvh_lightpath.nodes[i].axis == 3){ // leaf node
+            //             uint primitivesOffset = bvh_lightpath.nodes[i].primitivesOffset;
+            //             uint nPrimitives = bvh_lightpath.nodes[i].nPrimitives;
+            //             printf("primitivesOffset: %d\n", primitivesOffset);
+            //             printf("nPrimitives: %d\n", nPrimitives);
+            //             for(int j = 0; j < nPrimitives; j++){
+            //                 printf("primitives[%d] = %d\n", j, 
+            //                 lightPathInfos
+            //                 [bvh_lightpath.orderdata[(primitivesOffset + j)] / scPreLightSize]
+            //                 [bvh_lightpath.orderdata[(primitivesOffset + j)] % scPreLightSize].matID);
+            //             }
+                       
+            //         }
+            //     }
+            // }
+
             delete[] img;
 
-            sc_computeShader->StopUsing();
 
             // Renders a low res preview if camera/instances are modified
             glBindFramebuffer(GL_FRAMEBUFFER, pathTraceFBOLowRes);

@@ -79,11 +79,13 @@ void main(void)
     vec4 pixelColor; 
 #ifdef OPT_BDPT
     sc_constructLightPath( seed );
+    
     pixelColor = HRRVC( ray );
     // pixelColor = sc_traceEyePath(ray);
     // pixelColor = traceEyePath(ray);
+    // pixelColor = sc_traceEyePath(ray);
 #else
-    pixelColor = sc_traceEyePath(ray);
+    pixelColor = testhrrvc( gl_FragCoord.x, gl_FragCoord.y );
     
     // pixelColor = PathTrace(ray);
 #endif

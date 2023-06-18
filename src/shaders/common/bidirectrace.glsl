@@ -439,6 +439,26 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
 
 }
 
+vec4 testhrrvc(in float x, in float y){
+
+    State state; 
+    vec3 radiance = vec3(0.);
+    vec3 throughput = vec3(1.); 
+    LightSampleRec lightSample;
+    ScatterSampleRec scatterSample;
+    Light light;
+
+    bool hit = false; 
+    LinearBVHNode bvhnode; 
+
+    vec3 param1 = vec3(texelFetch(lightPathBVHTex, 2).xyz);
+    int nodecnt = int(param1.y); 
+    if (nodecnt == 0) return(vec4(0.0, 1.0, 0.0, 1.0));
+    if(param1 == vec3(0.0)) return vec4(1.0, 0.56, 0.57, 1.0);
+    return vec4(param1, 1.0); 
+
+}
+
 vec4 HRRVC( in Ray ray_) { 
     vec3 ro = ray_.origin; 
     vec3 rd = ray_.direction;

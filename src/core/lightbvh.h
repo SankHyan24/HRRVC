@@ -118,7 +118,6 @@ public:
             pointInfo[i] = i;
         }
 
-        orderdata.resize(pointInfo.size());
         uint offset = 0;
         if (method == SplitMethod::SAH)
         {
@@ -143,15 +142,15 @@ public:
                     (1024.f * 1024.f));
 
         // print all nodes
-        // for (int i = 0; i < totalNodes; i++)
-        // {
-        //     // output LinearBVHNode infomations
-        //     printf("node %d: \n", i);
-        //     printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", nodes[i].bounds.pMin.x, nodes[i].bounds.pMin.y, nodes[i].bounds.pMin.z, nodes[i].bounds.pMax.x, nodes[i].bounds.pMax.y, nodes[i].bounds.pMax.z);
-        //     printf("primitivesOffset or secondchildoffset: %d\n", nodes[i].primitivesOffset);
-        //     printf("nPrimitives: %d\n", nodes[i].nPrimitives);
-        //     printf("axis: %d\n", nodes[i].axis);
-        // }
+        for (int i = 0; i < totalNodes; i++)
+        {
+            // output LinearBVHNode infomations
+            printf("node %d: \n", i);
+            printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", nodes[i].bounds.pMin.x, nodes[i].bounds.pMin.y, nodes[i].bounds.pMin.z, nodes[i].bounds.pMax.x, nodes[i].bounds.pMax.y, nodes[i].bounds.pMax.z);
+            printf("primitivesOffset or secondchildoffset: %d\n", nodes[i].primitivesOffset);
+            printf("nPrimitives: %d\n", nodes[i].nPrimitives);
+            printf("axis: %d\n", nodes[i].axis);
+        }
 
         //print leaf nodes: 
         // for (int i = 0; i < totalNodes; i++)
