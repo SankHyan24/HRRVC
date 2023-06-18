@@ -386,6 +386,127 @@ struct EyeNode{
     Material mat;
 };
 
+void GetLightPathNodeInfo(inout LightPathNode node, int index){
+    int ind = index * 7; 
+    vec3 param1 = vec3(texelFetch(lightPathTex, ind + 0).xyz);
+    vec3 param2 = vec3(texelFetch(lightPathTex, ind + 1).xyz);
+    vec3 param3 = vec3(texelFetch(lightPathTex, ind + 2).xyz);
+    vec3 param4 = vec3(texelFetch(lightPathTex, ind + 3).xyz);
+    vec3 param5 = vec3(texelFetch(lightPathTex, ind + 4).xyz);
+    vec3 param6 = vec3(texelFetch(lightPathTex, ind + 5).xyz);
+    vec3 param7 = vec3(texelFetch(lightPathTex, ind + 6).xyz);
+    node.position = param1.xyz;
+    node.radiance = param2.xyz;
+    node.normal = param3.xyz;
+    node.ffnormal = param4.xyz;
+    node.direction = param5.xyz;
+    node.eta = param6.x;
+    node.matID = int(param6.y);
+    node.avaliable = int(param6.z);
+    node.texCoord = param7.xy;
+    float matroughness = param7.z;
+
+
+    int matind = node.matID * 8;
+    
+    vec4 matparam1 = texelFetch(materialsTex, ivec2(index + 0, 0), 0);
+    vec4 matparam2 = texelFetch(materialsTex, ivec2(index + 1, 0), 0);
+    vec4 matparam3 = texelFetch(materialsTex, ivec2(index + 2, 0), 0);
+    vec4 matparam4 = texelFetch(materialsTex, ivec2(index + 3, 0), 0);
+    vec4 matparam5 = texelFetch(materialsTex, ivec2(index + 4, 0), 0);
+    vec4 matparam6 = texelFetch(materialsTex, ivec2(index + 5, 0), 0);
+    vec4 matparam7 = texelFetch(materialsTex, ivec2(index + 6, 0), 0);
+    vec4 matparam8 = texelFetch(materialsTex, ivec2(index + 7, 0), 0);
+
+    node.mat.baseColor          = matparam1.rgb;
+    node.mat.anisotropic        = matparam1.w;
+
+    node.mat.emission           = matparam2.rgb;
+
+    node.mat.metallic           = matparam3.x;
+    node.mat.roughness          = max(matparam3.y, 0.001);
+    node.mat.subsurface         = matparam3.z;
+    node.mat.specularTint       = matparam3.w;
+
+    node.mat.sheen              = matparam4.x;
+    node.mat.sheenTint          = matparam4.y;
+    node.mat.clearcoat          = matparam4.z;
+    node.mat.clearcoatRoughness = mix(0.1, 0.001, matparam4.w); // Remapping from gloss to roughness
+
+    node.mat.specTrans          = matparam5.x;
+    node.mat.ior                = matparam5.y;
+    node.mat.medium.type        = int(matparam5.z);
+    node.mat.medium.density     = matparam5.w;
+
+    node.mat.medium.color       = matparam6.rgb;
+    node.mat.medium.anisotropy  = clamp(matparam6.w, -0.9, 0.9);
+
+    ivec4 texIDs           = ivec4(matparam7);
+
+    node.mat.opacity            = matparam8.x;
+    node.mat.alphaMode          = int(matparam8.y);
+    node.mat.alphaCutoff        = matparam8.z;
+
+    if (texIDs.x >= 0)
+    {
+        vec4 col = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.x));
+        node.mat.baseColor.rgb *= pow(col.rgb, vec3(2.2));
+        node.mat.opacity *= col.a;
+    }
+
+    // Metallic Roughness Map
+    if (texIDs.y >= 0)
+    {
+        vec2 matRgh = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.y)).bg;
+        node.mat.metallic = matRgh.x;
+        node.mat.roughness = max(matRgh.y * matRgh.y, 0.001);
+    }
+
+    // Normal Map
+    if (texIDs.z >= 0)
+    {
+        vec3 texNormal = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.z)).rgb;
+
+#ifdef OPT_OPENGL_NORMALMAP
+        texNormal.y = 1.0 - texNormal.y;
+#endif
+        texNormal = normalize(texNormal * 2.0 - 1.0);
+
+    }
+
+#ifdef OPT_ROUGHNESS_MOLLIFICATION
+    if(state.depth > 0)
+        node.mat.roughness = max(mix(0.0, matroughness, roughnessMollificationAmt), node.mat.roughness);
+#endif
+
+    // Emission Map
+    if (texIDs.w >= 0)
+        node.mat.emission = pow(texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.w)).rgb, vec3(2.2));
+
+}
+
+void fetchLightBVHnode(inout LinearBVHNode node, in int index){
+    node.pmin = texelFetch(lightPathBVHTex, index * 3 + 0).xyz;// 2649
+    node.pmax = texelFetch(lightPathBVHTex, index * 3 + 1).xyz;
+    node.primitivesOffsetOrSecondChildOffset = int(texelFetch(lightPathBVHTex, index * 3 + 2).x);
+    node.nPrimitives = int(texelFetch(lightPathBVHTex, index * 3 + 2).y);
+    node.axis = int(texelFetch(lightPathBVHTex, index * 3 + 2).z);
+}
+
+void fetchLightBVHnodeIndex(inout int indexout, in int index){
+    int offset  =   index / 3; 
+    int rem     =   index % 3;
+    if(rem == 0){
+        indexout = int(texelFetch(lightPathBVHIndexTex, offset).x);
+    }
+    else if(rem == 1){
+        indexout = int(texelFetch(lightPathBVHIndexTex, offset).y);
+    }
+    else if(rem == 2){
+        indexout = int(texelFetch(lightPathBVHIndexTex, offset).z);
+    }
+}
+
 vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 connectionRadiance = vec3(23.0);
     return connectionRadiance;
@@ -439,7 +560,27 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
 
 }
 
-vec4 testhrrvc(in float x, in float y){
+vec4 testFetchData(in Ray ray_,inout float seed){
+    LinearBVHNode node; 
+    fetchLightBVHnode(node, 5084);
+
+    int LightBVHnodeIndex; 
+    fetchLightBVHnodeIndex(LightBVHnodeIndex, 4);
+
+    LightPathNode lnode; 
+    seed = gl_FragCoord.x;
+    int yy = int(gl_FragCoord.y);
+    int randnum = int(hash1(seed)*199)%10000;
+    GetLightPathNodeInfo(lnode, randnum *3+yy%3 );
+
+    return vec4(lnode.radiance, 1.0); 
+    return vec4(vec3(LightBVHnodeIndex / 10000.0), 1.0);
+    return vec4(node.pmax, 1.0);
+}
+
+vec4 testhrrvc(in Ray ray_){
+    vec3 ro = ray_.origin; 
+    vec3 rd = ray_.direction;
 
     State state; 
     vec3 radiance = vec3(0.);
@@ -447,16 +588,96 @@ vec4 testhrrvc(in float x, in float y){
     LightSampleRec lightSample;
     ScatterSampleRec scatterSample;
     Light light;
-
+    
     bool hit = false; 
-    LinearBVHNode bvhnode; 
+    vec3 curnormal = rd;
+    
+    for( int j=0; j<EYEPATHLENGTH; ++j ) {
+        
 
-    vec3 param1 = vec3(texelFetch(lightPathBVHTex, 2).xyz);
-    int nodecnt = int(param1.y); 
-    if (nodecnt == 0) return(vec4(0.0, 1.0, 0.0, 1.0));
-    if(param1 == vec3(0.0)) return vec4(1.0, 0.56, 0.57, 1.0);
-    return vec4(param1, 1.0); 
+        Material mat; 
+        
+        Ray r = Ray(ro, rd); 
+        hit = ClosestHit(r, state, lightSample); 
 
+        // if not hit, return background color
+        if(!hit){
+            break;
+        }
+
+        // if hit light, return light color
+        if(state.isEmitter){
+            float misWeight = 1.0;
+            if (j > 0){
+                misWeight = PowerHeuristic(scatterSample.pdf, lightSample.pdf);
+            }
+            radiance += misWeight * throughput * lightSample.emission;
+            break;
+        }
+
+
+        GetMaterial(state, r);
+        mat = state.mat;
+        curnormal = state.ffnormal;
+        // Sample BRDF
+        scatterSample.f = DisneySample(state, -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
+        rd = scatterSample.L;
+        ro = state.fhp + normalize(rd)*EPS;
+
+        if (scatterSample.pdf > 0.0)
+            throughput *= scatterSample.f / scatterSample.pdf;
+        else break; 
+
+
+        EyeNode eye_;
+        eye_.Dir = rd;
+        eye_.Pos = ro;
+        eye_.Normal = curnormal;
+        eye_.mat = mat;
+
+
+
+        vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
+        ivec3 dirIsNeg = ivec3(
+            int(invDir.x < 0),
+            int(invDir.y < 0),
+            int(invDir.z < 0)
+        );
+        
+        // intersect bvh node
+        BVHNodeRecord nodesToVisit[1024]; //stack
+        for(int i = 0; i < 1024; i++){
+            nodesToVisit[i].nodeIndex = -1;
+            nodesToVisit[i].randomNumberMin = -1.0;
+            nodesToVisit[i].infimum = -1.0;
+        }
+
+        int stackLevel = 0;
+        int currentNodeIndex = 0;
+        int leftnode_index = 1;
+        int rightnode_index;
+        int currentdepth = 0;
+
+        LinearBVHNode bvhnode; 
+        fetchLightBVHnode(bvhnode, currentNodeIndex); 
+
+        float randomNumberMin = rand()/ bvhnode.nPrimitives ;
+        float infimum = 1.0f / bvhnode.nPrimitives;
+
+        vec3 result = vec3(0.0);
+
+        // constant value in R(omega; z. xi)
+        float ConstantValInGenRange = 1.0; 
+
+
+        while(true){
+            break;
+        }
+
+
+
+    }
+    return vec4(radiance, 1.0); 
 }
 
 vec4 HRRVC( in Ray ray_) { 
@@ -520,6 +741,7 @@ vec4 HRRVC( in Ray ray_) {
         );
         
         // intersect bvh node
+
         BVHNodeRecord nodesToVisit[1024]; //stack
         for(int i = 0; i < 1024; i++){
             nodesToVisit[i].nodeIndex = -1;
@@ -542,16 +764,20 @@ vec4 HRRVC( in Ray ray_) {
         vec3 result = vec3(0.0);
 
         // constant value in R(omega; z. xi)
-        float ConstantValInGenRange = 1.0; 
+        float ConstantValInGenRange = 0.01; 
 
         
-        
+        int counter=0;
+        int test_lvl=2;
         while(true){
-            LinearBVHNode bvhnode; 
-            fetchLightBVHnode(bvhnode, currentNodeIndex); 
+            counter+=1;
 
+            // LinearBVHNode bvhnode; 
+            fetchLightBVHnode(bvhnode, currentNodeIndex); 
+            
             if(bvhnode.axis != 3) // bvh node is internal node
             {
+                
                 LinearBVHNode childL;
                 LinearBVHNode childR;
                 rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset; 
@@ -575,36 +801,47 @@ vec4 HRRVC( in Ray ray_) {
 
                 bool hitL = intersectBB(ro, rd, AcceptRangeL, childL);
                 bool hitR = intersectBB(ro, rd, AcceptRangeR, childR);
-
+                if(counter > 1000)
+                    // return vec4(radiance, 1.0);
+                    return vec4(vec3(1.0,0.0,0.0), 1.0);
                 if(hitL && hitR) {
                     currentNodeIndex = transmitToLeft ? leftnode_index : rightnode_index ;
                     nodesToVisit[ stackLevel ].nodeIndex = transmitToLeft ? rightnode_index : leftnode_index  ;
-                    nodesToVisit[ stackLevel ]. randomNumberMin = newRandomNumberMin ;
-                    nodesToVisit[ stackLevel ]. infimum = supremum ;
+                    nodesToVisit[ stackLevel ].randomNumberMin = newRandomNumberMin ;
+                    nodesToVisit[ stackLevel ].infimum = supremum ;
                     ++ stackLevel ;
+
+                if(counter ==test_lvl)
+                    return vec4(vec3(0.0,0.0,1.0), 1.0);
                     continue ;
                 } else if(hitL) {
+                if(counter ==test_lvl)
+                    return vec4(vec3(0.0,1.0,0.0), 1.0);
                     currentNodeIndex = leftnode_index ;
                     if(! transmitToLeft ) {
                         randomNumberMin = newRandomNumberMin ;
                         infimum = supremum ;
                         
                     }
+                    // ++ stackLevel ;
                     continue ;
                 } 
                 else if(hitR) {
+                if(counter ==test_lvl)
+                    return vec4(vec3(0.8, 0.1451, 0.8588), 1.0);
                     currentNodeIndex = rightnode_index ;
                     if( transmitToLeft ) {
                         randomNumberMin = newRandomNumberMin ;
                         infimum = supremum ;
                     }
+                    // ++ stackLevel ;
                     continue ;
-                } 
+                } else{
+                }
             }
             else // bvh node is leaf node
             {   
                 // sc :cannot enter this block
-                radiance += vec3(100.0);
                 int leafIndex = currentNodeIndex; 
                 int firstPrimOffset = bvhnode.primitivesOffsetOrSecondChildOffset;
                 int primCount = bvhnode.nPrimitives;
@@ -625,12 +862,14 @@ vec4 HRRVC( in Ray ray_) {
 
                     if(connect_radiance.x>0.0||connect_radiance.y>0.0||connect_radiance.z>0.0)
                         radiance += throughput * connect_radiance * weight;
+                 return vec4(vec3(1.0,0.0,0.0), 1.0);
     // www;// 3342
                 }
             }
             if(stackLevel == 0) break;
 
-            BVHNodeRecord stackElement = nodesToVisit[ stackLevel - 1 ];
+            BVHNodeRecord stackElement = nodesToVisit[ stackLevel ];
+            stackLevel--;
             currentNodeIndex = stackElement.nodeIndex;
             randomNumberMin = stackElement.randomNumberMin;
             infimum = stackElement.infimum;
@@ -640,6 +879,7 @@ vec4 HRRVC( in Ray ray_) {
         if (scatterSample.pdf > 0.0)
             throughput *= scatterSample.f / scatterSample.pdf;
         else break; 
+        break; 
 #ifdef OPT_RR
         // Russian roulette
 

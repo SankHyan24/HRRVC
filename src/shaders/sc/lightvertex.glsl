@@ -25,104 +25,7 @@ vec3 SampleCosWeightedHemisphereDirection(out float pdf){
     return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 }
 
-void GetLightPathNodeInfo(inout LightPathNode node, int index){
-    int ind = index * 7; 
-    vec3 param1 = vec3(texelFetch(lightPathTex, ind + 0).xyz);
-    vec3 param2 = vec3(texelFetch(lightPathTex, ind + 1).xyz);
-    vec3 param3 = vec3(texelFetch(lightPathTex, ind + 2).xyz);
-    vec3 param4 = vec3(texelFetch(lightPathTex, ind + 3).xyz);
-    vec3 param5 = vec3(texelFetch(lightPathTex, ind + 4).xyz);
-    vec3 param6 = vec3(texelFetch(lightPathTex, ind + 5).xyz);
-    vec3 param7 = vec3(texelFetch(lightPathTex, ind + 6).xyz);
-    node.position = param1.xyz;
-    node.radiance = param2.xyz;
-    node.normal = param3.xyz;
-    node.ffnormal = param4.xyz;
-    node.direction = param5.xyz;
-    node.eta = param6.x;
-    node.matID = int(param6.y);
-    node.avaliable = int(param6.z);
-    node.texCoord = param7.xy;
-    float matroughness = param7.z;
 
-
-    int matind = node.matID * 8;
-    
-    vec4 matparam1 = texelFetch(materialsTex, ivec2(index + 0, 0), 0);
-    vec4 matparam2 = texelFetch(materialsTex, ivec2(index + 1, 0), 0);
-    vec4 matparam3 = texelFetch(materialsTex, ivec2(index + 2, 0), 0);
-    vec4 matparam4 = texelFetch(materialsTex, ivec2(index + 3, 0), 0);
-    vec4 matparam5 = texelFetch(materialsTex, ivec2(index + 4, 0), 0);
-    vec4 matparam6 = texelFetch(materialsTex, ivec2(index + 5, 0), 0);
-    vec4 matparam7 = texelFetch(materialsTex, ivec2(index + 6, 0), 0);
-    vec4 matparam8 = texelFetch(materialsTex, ivec2(index + 7, 0), 0);
-
-    node.mat.baseColor          = matparam1.rgb;
-    node.mat.anisotropic        = matparam1.w;
-
-    node.mat.emission           = matparam2.rgb;
-
-    node.mat.metallic           = matparam3.x;
-    node.mat.roughness          = max(matparam3.y, 0.001);
-    node.mat.subsurface         = matparam3.z;
-    node.mat.specularTint       = matparam3.w;
-
-    node.mat.sheen              = matparam4.x;
-    node.mat.sheenTint          = matparam4.y;
-    node.mat.clearcoat          = matparam4.z;
-    node.mat.clearcoatRoughness = mix(0.1, 0.001, matparam4.w); // Remapping from gloss to roughness
-
-    node.mat.specTrans          = matparam5.x;
-    node.mat.ior                = matparam5.y;
-    node.mat.medium.type        = int(matparam5.z);
-    node.mat.medium.density     = matparam5.w;
-
-    node.mat.medium.color       = matparam6.rgb;
-    node.mat.medium.anisotropy  = clamp(matparam6.w, -0.9, 0.9);
-
-    ivec4 texIDs           = ivec4(matparam7);
-
-    node.mat.opacity            = matparam8.x;
-    node.mat.alphaMode          = int(matparam8.y);
-    node.mat.alphaCutoff        = matparam8.z;
-
-    if (texIDs.x >= 0)
-    {
-        vec4 col = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.x));
-        node.mat.baseColor.rgb *= pow(col.rgb, vec3(2.2));
-        node.mat.opacity *= col.a;
-    }
-
-    // Metallic Roughness Map
-    if (texIDs.y >= 0)
-    {
-        vec2 matRgh = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.y)).bg;
-        node.mat.metallic = matRgh.x;
-        node.mat.roughness = max(matRgh.y * matRgh.y, 0.001);
-    }
-
-    // Normal Map
-    if (texIDs.z >= 0)
-    {
-        vec3 texNormal = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.z)).rgb;
-
-#ifdef OPT_OPENGL_NORMALMAP
-        texNormal.y = 1.0 - texNormal.y;
-#endif
-        texNormal = normalize(texNormal * 2.0 - 1.0);
-
-    }
-
-#ifdef OPT_ROUGHNESS_MOLLIFICATION
-    if(state.depth > 0)
-        node.mat.roughness = max(mix(0.0, matroughness, roughnessMollificationAmt), node.mat.roughness);
-#endif
-
-    // Emission Map
-    if (texIDs.w >= 0)
-        node.mat.emission = pow(texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.w)).rgb, vec3(2.2));
-
-}
 
 
 vec3 SampleSphereLightVertex(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
@@ -372,94 +275,74 @@ float gamma(in int n){
     return (n * EPS_GAMMA ) / (1 - n * EPS_GAMMA);
 }
 
-void fetchLightBVHnode(inout LinearBVHNode node, in int index){
-    node.pmin = texelFetch(lightPathBVHTex, index * 3 + 0).xyz;// 2649
-    node.pmax = texelFetch(lightPathBVHTex, index * 3 + 1).xyz;
-    node.primitivesOffsetOrSecondChildOffset = int(texelFetch(lightPathBVHTex, index * 3 + 2).x);
-    node.nPrimitives = int(texelFetch(lightPathBVHTex, index * 3 + 2).y);
-    node.axis = int(texelFetch(lightPathBVHTex, index * 3 + 2).z);
-}
 
-void fetchLightBVHnodeIndex(inout int indexout, in int index){
-    int offset  =   index / 3; 
-    int rem     =   index % 3;
-    if(rem == 0){
-        indexout = int(texelFetch(lightPathBVHIndexTex, offset).x);
-    }
-    else if(rem == 1){
-        indexout = int(texelFetch(lightPathBVHIndexTex, offset).y);
-    }
-    else if(rem == 2){
-        indexout = int(texelFetch(lightPathBVHIndexTex, offset).z);
-    }
-}
 // lightPathBVHTex
 // vec3 boundpmin = texelFetch(lightPathBVHTex, leftIndex * 3 + 0).xyz
 // bool IntersectPB(in vec3 ro, in vec3 rd,  int depth = 1, float scale = 1 + 2 * gamma(3)) 
-bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
+// bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
     
-    vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
-    ivec3 dirIsNeg = ivec3(
-        int(invDir.x < 0),
-        int(invDir.y < 0),
-        int(invDir.z < 0)
-    );
+//     vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
+//     ivec3 dirIsNeg = ivec3(
+//         int(invDir.x < 0),
+//         int(invDir.y < 0),
+//         int(invDir.z < 0)
+//     );
 
-    int nodesToVisit[1024]; //stack
-    for(int i = 0; i < 1024; i++){
-        nodesToVisit[i] = 0;
-    }
+//     int nodesToVisit[1024]; //stack
+//     for(int i = 0; i < 1024; i++){
+//         nodesToVisit[i] = 0;
+//     }
 
-    nodesToVisit[0] = 0;
-    int toVisitOffset = 1;
-    int currentNodeIndex = 0;
-    int leftnode_index = 1;
-    int rightnode_index;
-    int currentdepth = 0;
-    while (toVisitOffset != 0){
-        LinearBVHNode bvhnode; 
-        fetchLightBVHnode(bvhnode, currentNodeIndex); 
-        if(bvhnode.nPrimitives > 0)// 
-        {
-            currentdepth += 1; 
-            if (currentdepth == depth)
-            {
-                break;
-            }
-        }
-        else{
-            leftnode_index = currentNodeIndex + 1;
-            rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset;
+//     nodesToVisit[0] = 0;
+//     int toVisitOffset = 1;
+//     int currentNodeIndex = 0;
+//     int leftnode_index = 1;
+//     int rightnode_index;
+//     int currentdepth = 0;
+//     while (toVisitOffset != 0){
+//         LinearBVHNode bvhnode; 
+//         fetchLightBVHnode(bvhnode, currentNodeIndex); 
+//         if(bvhnode.nPrimitives > 0)// 
+//         {
+//             currentdepth += 1; 
+//             if (currentdepth == depth)
+//             {
+//                 break;
+//             }
+//         }
+//         else{
+//             leftnode_index = currentNodeIndex + 1;
+//             rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset;
 
-            LinearBVHNode leftnode; 
-            LinearBVHNode rightnode;
-            fetchLightBVHnode(leftnode, leftnode_index);
-            fetchLightBVHnode(rightnode, rightnode_index);
-            float leftInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, leftnode.pmin, leftnode.pmax);
-            float rightInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, rightnode.pmin, rightnode.pmax);
-            bool leftInsect = bool(leftInsect_ > 0 ? 1 : 0);
-            bool rightInsect = bool(rightInsect_ > 0 ? 1 : 0);
-            if(leftInsect && !rightInsect){
-                nodesToVisit[++toVisitOffset] = leftnode_index;
-            }
-            else if(!leftInsect && rightInsect){
-                nodesToVisit[++toVisitOffset] = rightnode_index;
-            }
-            else if(leftInsect && rightInsect){
-                if (leftInsect_ < rightInsect_)
-                {
-                    nodesToVisit[++toVisitOffset] = rightnode_index;
-                    nodesToVisit[++toVisitOffset] = leftnode_index;
-                }
-                else
-                {
-                    nodesToVisit[++toVisitOffset] = leftnode_index;
-                    nodesToVisit[++toVisitOffset] = rightnode_index;
-                }
-            }
-        }
-        currentNodeIndex = nodesToVisit[toVisitOffset--];
-    }
-    return false; 
-}
+//             LinearBVHNode leftnode; 
+//             LinearBVHNode rightnode;
+//             fetchLightBVHnode(leftnode, leftnode_index);
+//             fetchLightBVHnode(rightnode, rightnode_index);
+//             float leftInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, leftnode.pmin, leftnode.pmax);
+//             float rightInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, rightnode.pmin, rightnode.pmax);
+//             bool leftInsect = bool(leftInsect_ > 0 ? 1 : 0);
+//             bool rightInsect = bool(rightInsect_ > 0 ? 1 : 0);
+//             if(leftInsect && !rightInsect){
+//                 nodesToVisit[++toVisitOffset] = leftnode_index;
+//             }
+//             else if(!leftInsect && rightInsect){
+//                 nodesToVisit[++toVisitOffset] = rightnode_index;
+//             }
+//             else if(leftInsect && rightInsect){
+//                 if (leftInsect_ < rightInsect_)
+//                 {
+//                     nodesToVisit[++toVisitOffset] = rightnode_index;
+//                     nodesToVisit[++toVisitOffset] = leftnode_index;
+//                 }
+//                 else
+//                 {
+//                     nodesToVisit[++toVisitOffset] = leftnode_index;
+//                     nodesToVisit[++toVisitOffset] = rightnode_index;
+//                 }
+//             }
+//         }
+//         currentNodeIndex = nodesToVisit[toVisitOffset--];
+//     }
+//     return false; 
+// }
 

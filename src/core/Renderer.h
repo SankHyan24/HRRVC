@@ -40,8 +40,8 @@ namespace GLSLPT
         Vec3 ffnormal;
         Vec3 direction;
         float eta;
-        int matID;
-        int avaliable;
+        float matID;
+        float avaliable;
         Vec2 texCoods;
         float matroughness;
     };
@@ -205,7 +205,7 @@ namespace GLSLPT
         int scPreLightSize;
         GLfloat *lightInPixels{nullptr};
         float ***lightPathNodes{nullptr};
-        LightInfo **lightPathInfos{nullptr};
+        LightInfo *lightPathInfos{nullptr};
 
     public:
         Renderer(Scene *scene, const std::string &shadersDirectory);

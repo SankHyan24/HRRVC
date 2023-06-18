@@ -165,10 +165,7 @@ namespace GLSLPT
         }
         delete[] lightPathNodes;
 
-        for (int i = 0; i < lpnum; i++)
-        {
-            delete[] lightPathInfos[i];
-        }
+
         delete [] lightPathInfos; 
     }
 
@@ -187,11 +184,7 @@ namespace GLSLPT
             }
         }
 
-        lightPathInfos = new LightInfo *[lpnum];
-        for (int i = 0; i < lpnum; i++)
-        {
-            lightPathInfos[i] = new LightInfo[scPreLightSize];
-        }
+        lightPathInfos = new LightInfo [lpnum*scPreLightSize];
 
 
         glGenTextures(1, &lightInTex);
@@ -793,39 +786,39 @@ namespace GLSLPT
                 for (int j = 0; j < scPreLightSize; j++)
                 {
 
-                    lightPathInfos[i][j].position =
+                    lightPathInfos[i*scPreLightSize+j].position =
                         Vec3(
                             img[i * 4 + j * 4 * lpnum + 0],
                             img[i * 4 + j * 4 * lpnum + 1],
                             img[i * 4 + j * 4 * lpnum + 2]);
-                    lightPathInfos[i][j].radiance =
+                    lightPathInfos[i*scPreLightSize+j].radiance =
                         Vec3(
                             img[i * 4 + (j + 3) * 4 * lpnum + 0],
                             img[i * 4 + (j + 3) * 4 * lpnum + 1],
                             img[i * 4 + (j + 3) * 4 * lpnum + 2]);
-                    lightPathInfos[i][j].normal =
+                    lightPathInfos[i*scPreLightSize+j].normal =
                         Vec3(
                             img[i * 4 + (j + 6) * 4 * lpnum + 0],
                             img[i * 4 + (j + 6) * 4 * lpnum + 1],
                             img[i * 4 + (j + 6) * 4 * lpnum + 2]);
-                    lightPathInfos[i][j].ffnormal =
+                    lightPathInfos[i*scPreLightSize+j].ffnormal =
                         Vec3(
                             img[i * 4 + (j + 9) * 4 * lpnum + 0],
                             img[i * 4 + (j + 9) * 4 * lpnum + 1],
                             img[i * 4 + (j + 9) * 4 * lpnum + 2]);
-                    lightPathInfos[i][j].direction =
+                    lightPathInfos[i*scPreLightSize+j].direction =
                         Vec3(
                             img[i * 4 + (j + 12) * 4 * lpnum + 0],
                             img[i * 4 + (j + 12) * 4 * lpnum + 1],
                             img[i * 4 + (j + 12) * 4 * lpnum + 2]);
-                    lightPathInfos[i][j].eta = img[i * 4 + (j + 15) * 4 * lpnum + 0];
-                    lightPathInfos[i][j].matID = int(img[i * 4 + (j + 15) * 4 * lpnum + 1]);
-                    lightPathInfos[i][j].avaliable = int(img[i * 4 + (j + 15) * 4 * lpnum + 2]);
-                    lightPathInfos[i][j].texCoods =
+                    lightPathInfos[i*scPreLightSize+j].eta = img[i * 4 + (j + 15) * 4 * lpnum + 0];
+                    lightPathInfos[i*scPreLightSize+j].matID = img[i * 4 + (j + 15) * 4 * lpnum + 1];
+                    lightPathInfos[i*scPreLightSize+j].avaliable = img[i * 4 + (j + 15) * 4 * lpnum + 2];
+                    lightPathInfos[i*scPreLightSize+j].texCoods =
                         Vec2(
                             img[i * 4 + (j + 18) * 4 * lpnum + 0],
                             img[i * 4 + (j + 18) * 4 * lpnum + 1]);
-                    lightPathInfos[i][j].matroughness = img[i * 4 + (j + 18) * 4 * lpnum + 2];
+                    lightPathInfos[i*scPreLightSize+j].matroughness = img[i * 4 + (j + 18) * 4 * lpnum + 2];
                 }
             }
 
@@ -833,25 +826,25 @@ namespace GLSLPT
 
             // wyd:
             // print to check lightPathNodes
-            // freopen("out.txt", "w", stdout);
+            freopen("out.txt", "w", stdout);
             // for(int i = 0; i < lpnum; i++){
             //     for(int j = 0; j < scene->renderOptions.sc_BDPT_LIGHTPATH; j++){
             //         printf("lightPathInfos[%d][%d].position = %f %f %f\n", i,j,
-            //         lightPathInfos[i][j].position.x, lightPathInfos[i][j].position.y, lightPathInfos[i][j].position.z);
-            // printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
-            // lightPathInfos[i][j].radiance.x, lightPathInfos[i][j].radiance.y, lightPathInfos[i][j].radiance.z);
-            // printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
-            // lightPathInfos[i][j].normal.x, lightPathInfos[i][j].normal.y, lightPathInfos[i][j].normal.z);
-            // printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
-            // lightPathInfos[i][j].ffnormal.x, lightPathInfos[i][j].ffnormal.y, lightPathInfos[i][j].ffnormal.z);
-            // printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
-            // lightPathInfos[i][j].direction.x, lightPathInfos[i][j].direction.y, lightPathInfos[i][j].direction.z);
-            // printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i][j].eta);
-            // printf("lightPathInfos[%d][%d].matID = %d\n", i,j,lightPathInfos[i][j].matID);
-            // printf("lightPathInfos[%d][%d].avaliable = %d\n", i,j,lightPathInfos[i][j].avaliable);
-            // printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
-            // lightPathInfos[i][j].texCoods.x, lightPathInfos[i][j].texCoods.y);
-            // printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i][j].matroughness);
+            //         lightPathInfos[i*scPreLightSize+j].position.x, lightPathInfos[i*scPreLightSize+j].position.y, lightPathInfos[i*scPreLightSize+j].position.z);
+            //         printf("lightPathInfos[%d][%d].radiance = %f %f %f\n", i,j,
+            //         lightPathInfos[i*scPreLightSize+j].radiance.x, lightPathInfos[i*scPreLightSize+j].radiance.y, lightPathInfos[i*scPreLightSize+j].radiance.z);
+            //         printf("lightPathInfos[%d][%d].normal = %f %f %f\n", i,j,
+            //         lightPathInfos[i*scPreLightSize+j].normal.x, lightPathInfos[i*scPreLightSize+j].normal.y, lightPathInfos[i*scPreLightSize+j].normal.z);
+            //         printf("lightPathInfos[%d][%d].ffnormal = %f %f %f\n", i,j,
+            //         lightPathInfos[i*scPreLightSize+j].ffnormal.x, lightPathInfos[i*scPreLightSize+j].ffnormal.y, lightPathInfos[i*scPreLightSize+j].ffnormal.z);
+            //         printf("lightPathInfos[%d][%d].direction = %f %f %f\n", i,j,
+            //         lightPathInfos[i*scPreLightSize+j].direction.x, lightPathInfos[i*scPreLightSize+j].direction.y, lightPathInfos[i*scPreLightSize+j].direction.z);
+            //         printf("lightPathInfos[%d][%d].eta = %f\n", i,j,lightPathInfos[i*scPreLightSize+j].eta);
+            //         printf("lightPathInfos[%d][%d].matID = %f\n", i,j,lightPathInfos[i*scPreLightSize+j].matID);
+            //         printf("lightPathInfos[%d][%d].avaliable = %f\n", i,j,lightPathInfos[i*scPreLightSize+j].avaliable);
+            //         printf("lightPathInfos[%d][%d].texCoods = %f %f\n", i,j,
+            //         lightPathInfos[i*scPreLightSize+j].texCoods.x, lightPathInfos[i*scPreLightSize+j].texCoods.y);
+            //         printf("lightPathInfos[%d][%d].matroughness = %f\n", i,j,lightPathInfos[i*scPreLightSize+j].matroughness);
             //     }
             // }
             // freopen("CON","w",stdout);
@@ -870,9 +863,9 @@ namespace GLSLPT
             {
                 for (int j = 0; j < scPreLightSize; j++)
                 {
-                    pts.push_back(Point3f(lightPathInfos[i][j].position.x,
-                                          lightPathInfos[i][j].position.y,
-                                          lightPathInfos[i][j].position.z));
+                    pts.push_back(Point3f(lightPathInfos[i*scPreLightSize+j].position.x,
+                                          lightPathInfos[i*scPreLightSize+j].position.y,
+                                          lightPathInfos[i*scPreLightSize+j].position.z));
                 }
             }
 
@@ -913,6 +906,7 @@ namespace GLSLPT
             //
             // viewer->spin();
 
+           
 
             auto beforeTime = std::chrono::steady_clock::now();
 
@@ -921,22 +915,55 @@ namespace GLSLPT
             double duration_millsecond = std::chrono::duration<double, std::milli>(afterTime - beforeTime).count();
             printf("bvh construction time: %f ms\n", duration_millsecond);
 
+            std::vector<LinearBVHNodeForTransmit> Linearnodefortex; 
+            for(int i = 0; i < bvh_lightpath.totalNodes; i++){
+                LinearBVHNodeForTransmit tmp;
+                tmp.bounds = bvh_lightpath.nodes[i].bounds;
+                tmp.primitivesOffset = float(bvh_lightpath.nodes[i].primitivesOffset);
+                tmp.nPrimitives = float(bvh_lightpath.nodes[i].nPrimitives);
+                tmp.axis = float(bvh_lightpath.nodes[i].axis);
+                Linearnodefortex.push_back(tmp);
+            }
+
+            // output for debug
+            for(int i = 0; i < bvh_lightpath.totalNodes; i++){
+                printf("Linearnodefortex[%d].bounds: (%f, %f, %f) (%f, %f, %f)\n", i, Linearnodefortex[i].bounds.pMin.x, 
+                Linearnodefortex[i].bounds.pMin.y, 
+                Linearnodefortex[i].bounds.pMin.z, 
+                Linearnodefortex[i].bounds.pMax.x, 
+                Linearnodefortex[i].bounds.pMax.y, 
+                Linearnodefortex[i].bounds.pMax.z);
+                printf("Linearnodefortex[%d].primitivesOffset: %f\n", i, Linearnodefortex[i].primitivesOffset);
+                printf("Linearnodefortex[%d].nPrimitives: %f\n", i, Linearnodefortex[i].nPrimitives);
+                printf("Linearnodefortex[%d].axis: %f\n", i, Linearnodefortex[i].axis);
+            }
+
+            
+
+            std::vector<float> orderdatafortex; 
+            for(int i = 0; i < bvh_lightpath.totalNodes; i++){
+                orderdatafortex.push_back(float(bvh_lightpath.orderdata[i]));
+            }
+            // output bvh_lightpath.orderdata for debug
+            for(int i = 0; i < bvh_lightpath.totalNodes; i++){
+                printf("orderdatafortex[%d] = %f\n", i, orderdatafortex[i]);
+            }
 
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0][0], GL_STATIC_DRAW);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(LightInfo) * lpnum * scPreLightSize, &lightPathInfos[0], GL_STATIC_DRAW);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathTex);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBuffer);
 
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, sizeof(LinearBVHNode) * bvh_lightpath.totalNodes, &bvh_lightpath.nodes[0], GL_STATIC_DRAW);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(LinearBVHNode) * bvh_lightpath.totalNodes, &Linearnodefortex[0], GL_STATIC_DRAW);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHTex);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBVHBuffer);
-            
+
             // TODO: 
             glBindBuffer(GL_TEXTURE_BUFFER, lightPathBVHIndexBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, sizeof(int) * bvh_lightpath.totalNodes, &bvh_lightpath.orderdata[0], GL_STATIC_DRAW);
+            glBufferData(GL_TEXTURE_BUFFER, sizeof(int) * bvh_lightpath.totalNodes, &orderdatafortex[0], GL_STATIC_DRAW);
             glBindTexture(GL_TEXTURE_BUFFER, lightPathBVHIndexTex);
-            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32I, lightPathBVHIndexBuffer);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, lightPathBVHIndexBuffer);
 
 
 
@@ -1103,11 +1130,11 @@ namespace GLSLPT
             glBindTexture(GL_TEXTURE_2D, transformsTex);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (sizeof(Mat4) / sizeof(Vec4)) * scene->transforms.size(), 1, 0, GL_RGBA, GL_FLOAT, &scene->transforms[0]);
 
-            // Update materials
+            // Update materials 
             glBindTexture(GL_TEXTURE_2D, materialsTex);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, (sizeof(Material) / sizeof(Vec4)) * scene->materials.size(), 1, 0, GL_RGBA, GL_FLOAT, &scene->materials[0]);
 
-            // Update top level BVH
+            // Update top level BVH 
             int index = scene->bvhTranslator.topLevelIndex;
             int offset = sizeof(RadeonRays::BvhTranslator::Node) * index;
             int size = sizeof(RadeonRays::BvhTranslator::Node) * (scene->bvhTranslator.nodes.size() - index);
