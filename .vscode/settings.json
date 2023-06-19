@@ -71,6 +71,7 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "forward_list": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "valarray": "cpp"
     }
 }

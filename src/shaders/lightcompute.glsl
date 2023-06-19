@@ -18,20 +18,8 @@ uniform writeonly image2D u_outImg;
 #include common/lambert.glsl
 #include common/pathtrace.glsl
 #include sc/lightvertex.glsl
+#include sc/lightvertexseed.glsl
 
-
-// struct LightPathNode {
-//     vec3 position;
-//     vec3 radiance;
-//     vec3 normal;
-//     vec3 ffnormal;
-//     vec3 direction; 
-//     float eta; 
-//     int matID; 
-//     int avaliable;
-    
-//     Material mat;
-// };
 
 void main()
 {
@@ -41,18 +29,22 @@ void main()
 	ivec2 pixelPos = ivec2(KS) * gid + tid;
 
 	if(pixelPos[1] == 0){
-		float seed = 0.0; 
-		sc_constructLightPath(seed); 
+		float seed = pixelPos.x * 3.43121412313;
+		sc_constructLightPath_using_seed(seed); 
 		
-		for(int j = 0; j < 3; j++){
-			imageStore(u_outImg, ivec2(pixelPos[0],j),     vec4(lightVertices[j].position, 0.0));
-			imageStore(u_outImg, ivec2(pixelPos[0],j + 3), vec4(lightVertices[j].radiance, 0.0));
-			imageStore(u_outImg, ivec2(pixelPos[0],j + 6), vec4(lightVertices[j].normal, 0.0));
-			imageStore(u_outImg, ivec2(pixelPos[0],j + 9), vec4(lightVertices[j].ffnormal, 0.0));
+		for(int j = 0; j < LIGHTPATHLENGTH; j++){
+			imageStore(u_outImg, ivec2(pixelPos[0],j),      vec4(lightVertices[j].position, 0.0));
+			imageStore(u_outImg, ivec2(pixelPos[0],j + 3),  vec4(lightVertices[j].radiance, 0.0));
+			imageStore(u_outImg, ivec2(pixelPos[0],j + 6),  vec4(lightVertices[j].normal, 0.0));
+			imageStore(u_outImg, ivec2(pixelPos[0],j + 9),  vec4(lightVertices[j].ffnormal, 0.0));
 			imageStore(u_outImg, ivec2(pixelPos[0],j + 12), vec4(lightVertices[j].direction, 0.0));
 			imageStore(u_outImg, ivec2(pixelPos[0],j + 15), vec4(lightVertices[j].eta, 
 																 lightVertices[j].matID, 
 																 lightVertices[j].avaliable, 0.0));
+
+			imageStore(u_outImg, ivec2(pixelPos[0],j + 18), vec4(lightVertices[j].texCoord.x, 
+																 lightVertices[j].texCoord.y, 
+																 lightVertices[j].matroughness, 0.0));														 
 		}
 	}
 }

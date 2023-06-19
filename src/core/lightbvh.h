@@ -28,10 +28,10 @@ struct BucketInfo
 };
 
 struct BVHBuildNode
-{
-    int i;
-    Bounds3<float> bounds;
-    BVHBuildNode *children[2];
+{   
+    int i; 
+    Bounds3<float> bounds; 
+    BVHBuildNode *children[2]; 
     int splitAxis, firstPrimOffset, nPrimitives;
 
     void InitLeaf(int first, int n, const Bounds3<float> &b)
@@ -40,30 +40,38 @@ struct BVHBuildNode
         nPrimitives = n;
         bounds = std::move(b);
         children[0] = children[1] = nullptr;
+        splitAxis = 3; // leaf node
     }
 
     void InitInterior(int axis, BVHBuildNode *c0, BVHBuildNode *c1)
     {
         children[0] = c0;
         children[1] = c1;
-        // CHECK(c0->bounds != nullptr);
-        // CHECK(c1->bounds != nullptr);
         bounds = std::move(Union(c0->bounds, c1->bounds));
         splitAxis = axis;
-        nPrimitives = 0;
+
     }
 };
 struct LinearBVHNode
 {
-    Bounds3<float> bounds;
+    Bounds3<float> bounds; 
     union
     {
         uint primitivesOffset;  // leaf
-        uint secondChildOffset; // interior
+        uint secondChildOffset; // interior 
     };
-    uint16_t nPrimitives; // 0 -> interior node
-    uint8_t axis;         // interior node: xyz
-    uint8_t pad[1];
+    uint32_t nPrimitives; // 0 -> interior node
+    uint32_t axis;         // interior node: xyz
+    
+};
+
+struct LinearBVHNodeForTransmit
+{
+    Bounds3<float> bounds; 
+    
+    float primitivesOffsetOrSecondChildOffset;  // leaf
+    float nPrimitives; // 0 -> interior node
+    float axis;         // interior node: xyz
 };
 
 class BVH_ACC1
@@ -83,6 +91,28 @@ public:
     std::vector<Point3<float>> &_pointcloud;
     std::vector<uint> orderdata;
     uint totalNodes = 0;
+    
+    void printbvhnode(BVHBuildNode *node){
+        if(node->splitAxis == 3){
+            printf("leaf node: \n");
+            printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", node->bounds.pMin.x, node->bounds.pMin.y, node->bounds.pMin.z, node->bounds.pMax.x, node->bounds.pMax.y, node->bounds.pMax.z);              
+            printf("primitivesOffset: %d\n", node->firstPrimOffset);        
+            printf("splitAxis: %d\n", node->splitAxis);                 
+            printf("nPrimitives: %d\n", node->nPrimitives);             
+        }
+        else{
+            printf("internal node: \n");
+            printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", node->bounds.pMin.x, node->bounds.pMin.y, node->bounds.pMin.z, node->bounds.pMax.x, node->bounds.pMax.y, node->bounds.pMax.z);
+            printf("splitAxis: %d\n", node->splitAxis);
+            printf("nPrimitives: %d\n", node->nPrimitives);
+        }
+        if(node->children[0] != nullptr){
+            printbvhnode(node->children[0]);
+        }
+        if(node->children[1] != nullptr){
+            printbvhnode(node->children[1]);
+        }
+    }
 
     BVH_ACC1(std::vector<Point3<float>> &pointcloud, double voxel_length = 0.5, double minBoundLength = 1, SplitMethod method = SplitMethod::Middle, uint MemorySize = 128) : _pointcloud(pointcloud), _method(method), _voxel_length(voxel_length / 2.), _minBoundLength(minBoundLength)
     {
@@ -97,7 +127,6 @@ public:
             pointInfo[i] = i;
         }
 
-        orderdata.resize(pointInfo.size());
         uint offset = 0;
         if (method == SplitMethod::SAH)
         {
@@ -106,8 +135,11 @@ public:
         else
         {
             root = recursiveBuild(area, 0, pointInfo.size(), pointInfo, &totalNodes);
+            // recursively print node infos
+            // printbvhnode(root);
         }
-        nodes = AllocAligned<LinearBVHNode>(totalNodes);
+        nodes = new LinearBVHNode[totalNodes];
+        //  AllocAligned<LinearBVHNode>(totalNodes);
         flattenBVHTree(root, &offset);
         char output[1024];
         sprintf(output, "BVH created with %u nodes for %lu "
@@ -118,11 +150,35 @@ public:
                 float(area.TotalAllocated()) /
                     (1024.f * 1024.f));
 
+        // print all nodes
+        // for (int i = 0; i < totalNodes; i++)
+        // {
+        //     // output LinearBVHNode infomations
+        //     printf("node %d: \n", i);
+        //     printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", nodes[i].bounds.pMin.x, nodes[i].bounds.pMin.y, nodes[i].bounds.pMin.z, nodes[i].bounds.pMax.x, nodes[i].bounds.pMax.y, nodes[i].bounds.pMax.z);
+        //     printf("primitivesOffset or secondchildoffset: %d\n", nodes[i].primitivesOffset);
+        //     printf("nPrimitives: %d\n", nodes[i].nPrimitives);
+        //     printf("axis: %d\n", nodes[i].axis);
+        // }
+
+        //print leaf nodes: 
+        // for (int i = 0; i < totalNodes; i++)
+        // {
+        //     if(nodes[i].axis == 3){
+        //         printf("leaf node %d: \n", i);
+        //         printf("bounds: (%f, %f, %f) (%f, %f, %f)\n", nodes[i].bounds.pMin.x, nodes[i].bounds.pMin.y, nodes[i].bounds.pMin.z, nodes[i].bounds.pMax.x, nodes[i].bounds.pMax.y, nodes[i].bounds.pMax.z);
+        //         printf("primitivesOffset: %d\n", nodes[i].primitivesOffset);
+        //         printf("nPrimitives: %d\n", nodes[i].nPrimitives);
+        //         printf("axis: %d\n", nodes[i].axis);
+        //     }
+        // }
+
     }
 
     ~BVH_ACC1()
     {
-        FreeAligned(nodes);
+        std::free(nodes);
+        // FreeAligned(nodes);
     };
 
     void IntersectP(const Ray &ray, std::vector<uint> &ret_nodes, uint depth = 1, double scale = 1 + 2 * gamma(3))
@@ -191,7 +247,7 @@ public:
             currentNodeIndex = nodesToVisit[toVisitOffset--];
         }
     }
-
+    
     bool IntersectPB(const Ray &ray, std::vector<Bounds3<float>> &ret_bounds, uint depth = 1, double scale = 1 + 2 * gamma(3)) const
     {
         if (!nodes)
@@ -206,7 +262,7 @@ public:
         while (toVisitOffset != 0)
         {
             const LinearBVHNode *node = &nodes[currentNodeIndex];
-            if (node->nPrimitives > 0)
+            if (node->axis == 3)
             {
 
                 ret_bounds.push_back(node->bounds);
@@ -216,22 +272,7 @@ public:
                     break;
                 }
             }
-            else        // if (end - start <= 20)
-        // {
-        //     bounds.pMax.x += _voxel_length;
-        //     bounds.pMax.y += _voxel_length;
-        //     bounds.pMax.z += _voxel_length;
-        //     bounds.pMin.x -= _voxel_length;
-        //     bounds.pMin.y -= _voxel_length;
-        //     bounds.pMin.z -= _voxel_length;
-        //     uint firstposition = orderdata.size();
-        //     for (uint i = start; i < end; i++)
-        //     {
-        //         orderdata.push_back(info[i]);
-        //     }
-        //     node->InitLeaf(firstposition, end - start, bounds);
-        //     return node;
-        // }
+            else 
             {
                 leftnode_index = currentNodeIndex + 1;
                 rightnode_index = node->secondChildOffset;
@@ -286,7 +327,7 @@ public:
         {
             const LinearBVHNode *node = &nodes[currentNodeIndex];
 
-            if (currentDepth == depth || node->nPrimitives > 0)
+            if (currentDepth == depth || node->axis == 3)
             {
                 ret.push_back(node->bounds);
                 if (toVisitOffset == 0)
@@ -338,20 +379,23 @@ public:
 
 private:
     uint flattenBVHTree(BVHBuildNode *node, uint *offset)
-    {
+    {   
         LinearBVHNode *linearNode = &nodes[*offset];
-        linearNode->bounds = node->bounds;
+        linearNode->bounds = node->bounds; 
         int myOffset = (*offset)++;
-        if (node->nPrimitives > 0)
+        if (node->splitAxis == 3)
         {
             linearNode->primitivesOffset = node->firstPrimOffset;
             linearNode->nPrimitives = node->nPrimitives;
+            linearNode->axis = node->splitAxis;
         }
         else
         {
             linearNode->axis = node->splitAxis;
-            linearNode->nPrimitives = 0;
+            linearNode->nPrimitives = node->nPrimitives;
+            if(node->children[0] != nullptr)
             flattenBVHTree(node->children[0], offset);
+            if(node->children[1] != nullptr)
             linearNode->secondChildOffset = flattenBVHTree(node->children[1], offset);
         }
         return myOffset;
@@ -385,9 +429,10 @@ private:
         Bounds3<float> bounds(Point3<float>(xmin, ymin, zmin), Point3<float>(xmax, ymax, zmax));
         dim = bounds.MaximumExtent(); // max dimension
         uint nPrimitives = end - start; // for the first recur it is (n-1) - (0)
+        node->nPrimitives = nPrimitives; 
         int mid = (start + end) / 2;
         auto &&diagonal = (bounds.Diagonal()); // bounding box diagonal
-
+        
         if (diagonal.x < _minBoundLength && diagonal.y < _minBoundLength && diagonal.z < _minBoundLength)
         // if the box is smaller than the threshold, then it is a leaf node
         {
@@ -424,6 +469,9 @@ private:
             node->InitLeaf(firstposition, end - start, bounds);
             return node;
         }
+        // for internal nodes
+        
+        
         auto &pointcloud = _pointcloud;
         switch (_method)
         {

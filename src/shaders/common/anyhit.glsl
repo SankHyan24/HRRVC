@@ -93,7 +93,7 @@ bool AnyHit(Ray r, float maxDist)
             for (int i = 0; i < rightIndex; i++) // Loop through tris
             {
                 ivec3 vertIndices = ivec3(texelFetch(vertexIndicesTex, leftIndex + i).xyz);
-
+                
                 vec4 v0 = texelFetch(verticesTex, vertIndices.x);
                 vec4 v1 = texelFetch(verticesTex, vertIndices.y);
                 vec4 v2 = texelFetch(verticesTex, vertIndices.z);

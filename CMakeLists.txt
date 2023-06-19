@@ -109,7 +109,18 @@ endif()
 SET(LINK_OPTIONS " ")
 SET(EXE_NAME "PathTracer")
 
+
+
+
+find_package( PCL REQUIRED )
+include_directories( ${PCL_INCLUDE_DIRS})
+message(STATUS "PCL include dirs: ${PCL_INCLUDE_DIRS}")
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 ADD_EXECUTABLE(${EXE_NAME} ${SRCS})
+
+target_link_libraries (${EXE_NAME} ${PCL_LIBRARIES})
 
 if(WIN32)
 TARGET_LINK_LIBRARIES(${EXE_NAME} ${OPENGL_LIBRARIES} ${SDL2_LIBRARIES} ${OIDN_LIBRARIES})

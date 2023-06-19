@@ -8,9 +8,12 @@ struct LightPathNode {
     float eta; 
     int matID; 
     int avaliable;
+    vec2 texCoord; 
+    float matroughness;
     
     Material mat;
 };
+
 
 LightPathNode lightVertices[10];
 
@@ -21,6 +24,9 @@ vec3 SampleCosWeightedHemisphereDirection(out float pdf){
     pdf = sin(theta)*INV_TWO_PI;
     return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
 }
+
+
+
 
 vec3 SampleSphereLightVertex(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
 {
@@ -85,6 +91,7 @@ vec3 SampleRectLightVertex(in Light light, inout LightSampleRec lightSample, out
     vec3 fhp = state.fhp; // new node
     lightSample.dist = length(fhp - lightSurfacePos);
     lightSample.pdf = lightSample.dist*lightSample.dist/ (light.area*abs(dot(lightNormal, lightDirection)));
+    lightSample.dist = light.area;
     return lightSurfacePos;
 }
 vec3 SampleRectLightVertexUniform(in Light light, inout LightSampleRec lightSample, out bool hit, inout State state)
@@ -129,7 +136,7 @@ void sc_constructLightPath(in float seed ) {
     LightSampleRec lightSample;
     ScatterSampleRec scatterSample;
     Light light;
-
+    
     // 1. sample the light
     int index = int(rand() * float(numOfLights)) * 5;
 
@@ -171,7 +178,8 @@ void sc_constructLightPath(in float seed ) {
     lightVertices[0].eta = 1.0;
     lightVertices[0].avaliable = 1;
     lightVertices[0].ffnormal = lightSample.normal;
-
+    lightVertices[0].texCoord = vec2(0.0);
+    lightVertices[0].matroughness = 0.0;
 
     if(!hit||lightSample.pdf<=0.0){
         lightVertices[1].avaliable = 0;
@@ -196,11 +204,14 @@ void sc_constructLightPath(in float seed ) {
         lightVertices[i].matID = state.matID;
         lightVertices[i].eta = state.eta;
         lightVertices[i].ffnormal = state.ffnormal;
+        lightVertices[i].texCoord = state.texCoord;
+        lightVertices[i].matroughness = state.mat.roughness;
 
         vec3 dis = lightVertices[i].position - lightVertices[i-1].position;
         float invDist2 = 1.0/length(dis);
-        if (scatterSample.pdf > 0.0)
-            throughput *= scatterSample.f*invDist2/ (scatterSample.pdf);
+        if (scatterSample.pdf > 0.0){
+            throughput *= scatterSample.f/scatterSample.pdf;
+        }
         else
         {
             if(i+1!=LIGHTPATHLENGTH)
@@ -215,5 +226,123 @@ void sc_constructLightPath(in float seed ) {
         }
         // lightSample.direction = scatterSample.L;
     }
-
 }
+
+
+
+struct LinearBVHNode{
+    vec3 pmin; 
+    vec3 pmax;
+    int primitivesOffsetOrSecondChildOffset; // leaf or interior
+    int nPrimitives; // 0 -> interior node
+    int axis; // interior node: xyz
+};
+
+float IntersectPD(in vec3 ro, in vec3 rd, in vec3 invDir, in ivec3 dirIsNeg, in float scale, in vec3 boundmin, in vec3 boundmax){
+    float tMin = (boundmin.x - ro.x) * invDir.x; //2603 line
+    float tMax = (boundmax.x - ro.x) * invDir.x;
+    float tyMin = (boundmin.y - ro.y) * invDir.y;
+    float tyMax = (boundmax.y - ro.y) * invDir.y;
+
+    tMax *= scale;
+    tyMax *= scale;
+    if (tMin > tyMax || tyMin > tMax)
+        return -1.0;
+    if (tyMin > tMin)
+        tMin = tyMin;
+    if (tyMax < tMax)
+        tMax = tyMax;
+
+    // Check for ray intersection against $z$ slab
+    float tzMin = (boundmin.z - ro.z) * invDir.z;
+    float tzMax = (boundmax.z - ro.z) * invDir.z;
+
+    // Update _tzMax_ to ensure robust bounds intersection
+    // tzMax *= 1 + 2. * gamma(3);
+    tzMax *= scale;
+    if (tMin > tzMax || tzMin > tMax)
+        return -1.0;
+    if (tzMin > tMin)
+        tMin = tzMin;
+    if (tzMax < tMax)
+        tMax = tzMax;
+    return tMax;
+}
+
+//2632
+
+float gamma(in int n){
+    return (n * EPS_GAMMA ) / (1 - n * EPS_GAMMA);
+}
+
+
+// lightPathBVHTex
+// vec3 boundpmin = texelFetch(lightPathBVHTex, leftIndex * 3 + 0).xyz
+// bool IntersectPB(in vec3 ro, in vec3 rd,  int depth = 1, float scale = 1 + 2 * gamma(3)) 
+// bool IntersectPB(in vec3 ro, in vec3 rd, in int depth, in float scale) {
+    
+//     vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
+//     ivec3 dirIsNeg = ivec3(
+//         int(invDir.x < 0),
+//         int(invDir.y < 0),
+//         int(invDir.z < 0)
+//     );
+
+//     int nodesToVisit[1024]; //stack
+//     for(int i = 0; i < 1024; i++){
+//         nodesToVisit[i] = 0;
+//     }
+
+//     nodesToVisit[0] = 0;
+//     int toVisitOffset = 1;
+//     int currentNodeIndex = 0;
+//     int leftnode_index = 1;
+//     int rightnode_index;
+//     int currentdepth = 0;
+//     while (toVisitOffset != 0){
+//         LinearBVHNode bvhnode; 
+//         fetchLightBVHnode(bvhnode, currentNodeIndex); 
+//         if(bvhnode.nPrimitives > 0)// 
+//         {
+//             currentdepth += 1; 
+//             if (currentdepth == depth)
+//             {
+//                 break;
+//             }
+//         }
+//         else{
+//             leftnode_index = currentNodeIndex + 1;
+//             rightnode_index = bvhnode.primitivesOffsetOrSecondChildOffset;
+
+//             LinearBVHNode leftnode; 
+//             LinearBVHNode rightnode;
+//             fetchLightBVHnode(leftnode, leftnode_index);
+//             fetchLightBVHnode(rightnode, rightnode_index);
+//             float leftInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, leftnode.pmin, leftnode.pmax);
+//             float rightInsect_ = IntersectPD(ro, rd, invDir, dirIsNeg, scale, rightnode.pmin, rightnode.pmax);
+//             bool leftInsect = bool(leftInsect_ > 0 ? 1 : 0);
+//             bool rightInsect = bool(rightInsect_ > 0 ? 1 : 0);
+//             if(leftInsect && !rightInsect){
+//                 nodesToVisit[++toVisitOffset] = leftnode_index;
+//             }
+//             else if(!leftInsect && rightInsect){
+//                 nodesToVisit[++toVisitOffset] = rightnode_index;
+//             }
+//             else if(leftInsect && rightInsect){
+//                 if (leftInsect_ < rightInsect_)
+//                 {
+//                     nodesToVisit[++toVisitOffset] = rightnode_index;
+//                     nodesToVisit[++toVisitOffset] = leftnode_index;
+//                 }
+//                 else
+//                 {
+//                     nodesToVisit[++toVisitOffset] = leftnode_index;
+//                     nodesToVisit[++toVisitOffset] = rightnode_index;
+//                 }
+//             }
+//         }
+//         currentNodeIndex = nodesToVisit[toVisitOffset--];
+//     }
+//     return false; 
+// }
+

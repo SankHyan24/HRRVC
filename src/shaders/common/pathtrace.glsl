@@ -31,7 +31,7 @@ void GetMaterial(inout State state, in Ray r)
     int index = state.matID * 8;
     Material mat;
     Medium medium;
-
+    
     vec4 param1 = texelFetch(materialsTex, ivec2(index + 0, 0), 0);
     vec4 param2 = texelFetch(materialsTex, ivec2(index + 1, 0), 0);
     vec4 param3 = texelFetch(materialsTex, ivec2(index + 2, 0), 0);
@@ -40,6 +40,8 @@ void GetMaterial(inout State state, in Ray r)
     vec4 param6 = texelFetch(materialsTex, ivec2(index + 5, 0), 0);
     vec4 param7 = texelFetch(materialsTex, ivec2(index + 6, 0), 0);
     vec4 param8 = texelFetch(materialsTex, ivec2(index + 7, 0), 0);
+    
+
 
     mat.baseColor          = param1.rgb;
     mat.anisotropic        = param1.w;

@@ -38,6 +38,7 @@ in vec2 TexCoords;
 #include common/lambert.glsl
 #include common/pathtrace.glsl
 #include sc/lightvertex.glsl
+#include sc/lightvertexseed.glsl
 #include common/bidirectrace.glsl
 /*
     
@@ -72,18 +73,17 @@ void main(void)
     Ray ray = Ray(camera.position + randomAperturePos, finalRayDir);
 
     vec4 accumColor = texture(accumTexture, coordsTile);
-
     vec2 p = -1.0 + 2.0 * (gl_FragCoord.xy) / resolution.xy;
     p.x *= resolution.x/resolution.y;
     float seed = p.x + p.y * 3.43121412313;
     vec4 pixelColor; 
 #ifdef OPT_BDPT
     sc_constructLightPath( seed );
+    
     pixelColor = sc_traceEyePath(ray);
-    // pixelColor = traceEyePath(ray);
+
 #else
-    pixelColor = sc_traceEyePath(ray);
-    // pixelColor = PathTrace(ray);
+    pixelColor = HRRVC( ray );
 #endif
 
     color = pixelColor + accumColor;

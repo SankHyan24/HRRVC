@@ -28,6 +28,7 @@
 #define INV_TWO_PI 0.15915494309189533
 #define INV_4_PI   0.07957747154594766
 #define EPS 0.0003
+#define EPS_GAMMA 0.00003
 #define INF 1000000.0
 
 #define QUAD_LIGHT 0
@@ -188,6 +189,10 @@ void pcg4d(inout uvec4 v)
 float rand()
 {
     pcg4d(seed); return float(seed.x) / float(0xffffffffu);
+}
+
+uint randint(){
+    pcg4d(seed); return seed.x;
 }
 /*
     FaceForward 函数将两个三分量向量 a 和 b 作为参数，如果 a 和 b 的点积为正则返回 b，否则

@@ -34,14 +34,16 @@ namespace GLSLPT
 {
     struct LightInfo
     {
-        Vec3 position; 
+        Vec3 position;
         Vec3 radiance;
         Vec3 normal;
         Vec3 ffnormal;
-        Vec3 direction; 
-        float eta; 
-        int matID; 
-        int avaliable;
+        Vec3 direction;
+        float eta;
+        float matID;
+        float avaliable;
+        Vec2 texCoods;
+        float matroughness;
     };
 
     Program *LoadShaders(const ShaderInclude::ShaderSource &vertShaderObj, const ShaderInclude::ShaderSource &fragShaderObj);
@@ -140,9 +142,18 @@ namespace GLSLPT
         GLuint envMapTex;
         GLuint envMapCDFTex;
 
-        //wyd: gl light inout tex
+        // wyd: gl light inout tex
         GLuint lightInTex;
         GLuint lightOutTex;
+        // lightpath tex and buffer object
+        GLuint lightPathBuffer;
+        GLuint lightPathTex;
+        // lightpath bvh tex and buffer object
+        GLuint lightPathBVHBuffer;
+        GLuint lightPathBVHTex;
+        // bvh index tex and buffer object
+        GLuint lightPathBVHIndexBuffer;
+        GLuint lightPathBVHIndexTex;
 
         // FBOs
         GLuint pathTraceFBO;
@@ -156,8 +167,9 @@ namespace GLSLPT
         Program *pathTraceShaderLowRes;
         Program *outputShader;
         Program *tonemapShader;
+        Program *sc_computeShader;
 
-        //wyd: 
+        // wyd:
         GLuint lightComputeShader;
 
         // Render textures
@@ -188,11 +200,12 @@ namespace GLSLPT
         bool denoised;
 
         bool initialized;
-        
-        // wyd: 
-        GLfloat *lightInPixels;
-        float ***lightPathNodes; 
-        LightInfo **lightPathInfos;
+
+        // wyd:
+        int scPreLightSize;
+        GLfloat *lightInPixels{nullptr};
+        float ***lightPathNodes{nullptr};
+        LightInfo *lightPathInfos{nullptr};
 
     public:
         Renderer(Scene *scene, const std::string &shadersDirectory);
@@ -207,10 +220,11 @@ namespace GLSLPT
         int GetSampleCount();
         void GetOutputBuffer(unsigned char **, int &w, int &h);
 
-
     private:
         void InitGPUDataBuffers();
         void InitFBOs();
         void InitShaders();
+        void ScRegenerateLocalBuffer();
+        void ScReleaseLocalBuffer();
     };
 }
