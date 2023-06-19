@@ -78,18 +78,12 @@ void main(void)
     float seed = p.x + p.y * 3.43121412313;
     vec4 pixelColor; 
 #ifdef OPT_BDPT
-    // sc_constructLightPath( seed );
+    sc_constructLightPath( seed );
     
-    // pixelColor = sc_traceEyePath(ray);
-    // pixelColor = traceEyePath(ray);
-    // pixelColor = sc_traceEyePath(ray);
-    pixelColor = testFetchData( ray,seed );
+    pixelColor = sc_traceEyePath(ray);
+
 #else
     pixelColor = HRRVC( ray );
-    // pixelColor = HRRVC( ray );
-    // pixelColor = testhrrvc( ray );
-    
-    // pixelColor = PathTrace(ray);
 #endif
 
     color = pixelColor + accumColor;

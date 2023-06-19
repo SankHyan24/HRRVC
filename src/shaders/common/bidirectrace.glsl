@@ -234,7 +234,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
             vec3 radianceBidirectional = vec3(0.0);
             int sampleCounter = 0;
 
-            for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
+                for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
                 if(lightVertices[i].avaliable == 0) break;
                 // if(if_pos_near(lightVertices[i].position, eyePos))
                 // {
@@ -302,12 +302,9 @@ vec4 sc_traceEyePath( in Ray ray_) {
         }
 #endif
 
-#ifndef OPT_BDPT
-        radiance += DirectLight(r,state,true)*throughput;
+#ifdef OPT_BDPT
+        // radiance += DirectLight(r,state,true)*throughput;
 #endif
-        // scatterSample.f = DisneySample(state,  -r.direction, curnormal, scatterSample.L, scatterSample.pdf);
-        // rd = scatterSample.L;
-        // ro = state.fhp + normalize(rd)*EPS;
 
         
         if (scatterSample.pdf > 0.0)
@@ -332,7 +329,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
 // int depth = 1;
 // float scale = 1 + 2 * gamma(3);
 
-bool sc_intersectBB(in vec3 ro, in vec3 rd, in float range, in LinearBVHNode bvh){
+bool sc_intersectBB(in vec3 ro, in vec3 rd, in float range, in LinearBVHNode bvh,inout float dist){
     vec3 invDir = vec3(1.0 / rd.x, 1.0 / rd.y, 1.0 / rd.z);
     ivec3 dirIsNeg = ivec3(
         int(invDir.x < 0),
@@ -347,7 +344,9 @@ bool sc_intersectBB(in vec3 ro, in vec3 rd, in float range, in LinearBVHNode bvh
 
     for(int i=0;i<3;i++){
         if(abs(rd[i])<0.0001){
-            if(ro[i]<boundmin[i] || ro[i]>boundmax[i]) return false;
+            if(ro[i]<boundmin[i] || ro[i]>boundmax[i]) 
+            // continue;
+            return false;
         }
         else{
             float ood = 1.0 / rd[i];
@@ -363,9 +362,12 @@ bool sc_intersectBB(in vec3 ro, in vec3 rd, in float range, in LinearBVHNode bvh
             if(txMin>txMax) return false;
         }
     }
+    vec3 center;
+    center.x = (boundmin.x + boundmax.x) / 2.0;
+    center.y = (boundmin.y + boundmax.y) / 2.0;
+    center.z = (boundmin.z + boundmax.z) / 2.0;
+    dist = length(center - ro);
     return true;
-
-
 }
 
 
@@ -499,17 +501,6 @@ void GetLightPathNodeInfo(inout LightPathNode node, int index){
         node.mat.roughness = max(matRgh.y * matRgh.y, 0.001);
     }
 
-    // Normal Map
-    if (texIDs.z >= 0)
-    {
-        vec3 texNormal = texture(textureMapsArrayTex, vec3(node.texCoord, texIDs.z)).rgb;
-
-#ifdef OPT_OPENGL_NORMALMAP
-        texNormal.y = 1.0 - texNormal.y;
-#endif
-        texNormal = normalize(texNormal * 2.0 - 1.0);
-
-    }
 
 #ifdef OPT_ROUGHNESS_MOLLIFICATION
     if(state.depth > 0)
@@ -548,10 +539,10 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 connectionRadiance = vec3(0.0);
     if(lightnode.avaliable == 0) return connectionRadiance;
     // light vertex information
-    return lightnode.mat.baseColor; 
 
-
-
+    // if(if_pos_near(lightnode.position, eyenode.Pos)) 
+    //     return lightnode.radiance;
+    // return connectionRadiance;
     vec3 lightRadiance = lightnode.radiance;
     vec3 lightPos = lightnode.position  ;
     vec3 lightNormal = normalize(lightnode.normal);
@@ -562,7 +553,8 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 eyeNormal = eyenode.Normal;
     vec3 eyeDirection = eyenode.Dir;
     Material eyeMat = eyenode.mat;
-    return lightRadiance;
+    // return lightRadiance;
+
 
     vec3 eye2lightDir = normalize(lightPos - eyePos);
     vec3 light2eyeDir = -eye2lightDir;
@@ -576,7 +568,7 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     // shadow ray test
     Ray shadowRay = Ray(eyePos, eye2lightDir);
     float dist = length (lightPos - eyePos);
-    if(AnyHit(shadowRay, dist- EPS))return connectionRadiance;
+    // if(AnyHit(shadowRay, dist- EPS))return connectionRadiance;
 
     State shadowState;
     shadowState.mat = lightMat;
@@ -591,37 +583,19 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 eyeBRDF = DisneyEval(eyeState, -eyeDirection, eyeNormal, eye2lightDir, eyePdf);
 
     // the first light cannot be the vertex!
+    if(lightnode.matID == -1){
+        float lightArea = lightnode.direction.x;
+        lightPdf = 1.0/Dist2;
+        lightBRDF = vec3(1.0)*lightArea;
+    }
 
-    if(lightPdf <= 0.0 || eyePdf <= 0.0) return connectionRadiance;
-    connectionRadiance += lightRadiance  * eyeBRDF * lightBRDF * cosAtEye *cosAtLight * lightPdf / eyePdf ;
+    if( eyePdf <= 0.0) return connectionRadiance;
+    connectionRadiance += lightRadiance *lightBRDF*eyeBRDF*lightPdf*cosAtEye*cosAtLight/eyePdf ;
 
     return connectionRadiance;
     return lightRadiance;
 
 }
-
-vec4 testFetchData(in Ray ray_,inout float seed){
-    // LinearBVHNode node; 
-    // fetchLightBVHnode(node, 5084);
-
-    // int LightBVHnodeIndex; 
-    // fetchLightBVHnodeIndex(LightBVHnodeIndex, 4);
-
-    LightPathNode lnode; 
-    // seed = gl_FragCoord.x/10;
-    // int yy = int(gl_FragCoord.y);
-    // int randnum = int(hash1(seed)*199)%10000;
-    GetLightPathNodeInfo(lnode, 1);
-
-    return vec4(lnode.mat.baseColor, 1.0); 
-    // return vec4(vec3(LightBVHnodeIndex / 10000.0), 1.0);
-    // return vec4(node.pmax, 1.0);
-
-    // int LightBVHnodeIndex; 
-    // fetchLightBVHnodeIndex(LightBVHnodeIndex, 300);
-    // return vec4(vec3(LightBVHnodeIndex / 6000.0), 1.0);
-}
-
 
 vec4 HRRVC( in Ray ray_) { 
     vec3 ro = ray_.origin; 
@@ -719,6 +693,9 @@ vec4 HRRVC( in Ray ray_) {
 
             // LinearBVHNode bvhnode; 
             fetchLightBVHnode(bvhnode, currentNodeIndex); 
+            float dist_y_z_L;
+            float dist_y_z_R;
+            int use_L;
             
             if(bvhnode.axis != 3) // bvh node is internal node
             {
@@ -748,11 +725,11 @@ vec4 HRRVC( in Ray ray_) {
                 float AcceptRangeL = sqrt(ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) / randomNumberMinL);
                 float AcceptRangeR = sqrt(ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) / randomNumberMinR);
 
-                bool hitL = sc_intersectBB(ro, rd, AcceptRangeL, childL);
-                bool hitR = sc_intersectBB(ro, rd, AcceptRangeR, childR);
-
+                bool hitL = sc_intersectBB(ro, rd, AcceptRangeL, childL, dist_y_z_L);
+                bool hitR = sc_intersectBB(ro, rd, AcceptRangeR, childR, dist_y_z_R);
                 if(hitL && hitR) {
                     currentNodeIndex = transmitToLeft ? leftnode_index : rightnode_index ;
+                    use_L = transmitToLeft ? 1 : 0 ;
                     nodesToVisit[ stackLevel ].nodeIndex = transmitToLeft ? rightnode_index : leftnode_index  ;
                     nodesToVisit[ stackLevel ].randomNumberMin = newRandomNumberMin ;
                     nodesToVisit[ stackLevel ].infimum = supremum ;
@@ -760,6 +737,7 @@ vec4 HRRVC( in Ray ray_) {
                     continue ;
                 } else if(hitL) {
                     currentNodeIndex = leftnode_index ;
+                    use_L = 1 ;
                     if(! transmitToLeft ) {
                         randomNumberMin = newRandomNumberMin ;
                         infimum = supremum ;
@@ -768,17 +746,24 @@ vec4 HRRVC( in Ray ray_) {
                 } 
                 else if(hitR) {
                     currentNodeIndex = rightnode_index ;
+                    use_L = 0 ;
                     if( transmitToLeft ) {
                         randomNumberMin = newRandomNumberMin ;
                         infimum = supremum ;
                     }
                     continue ;
-                } else{
-                }
+                } 
             }
             else // bvh node is leaf node
             {   
                 // sc :cannot enter this block
+                // RR
+                #ifdef OPT_RR
+                float dist_=use_L==1?dist_y_z_L:dist_y_z_R;
+                float p_y_z = min(1.0f, ConstantValInGenRange * sqrt(dot(scatterSample.f, scatterSample.f)) /dist_ );
+                if(randomNumberMin > p_y_z) break;
+                #endif
+
                 int leafIndex = currentNodeIndex; 
                 int firstPrimOffset = bvhnode.primitivesOffsetOrSecondChildOffset;
                 int primCount = bvhnode.nPrimitives;
@@ -791,24 +776,26 @@ vec4 HRRVC( in Ray ray_) {
                     fetchLightBVHnodeIndex(index, firstPrimOffset + i); 
                     GetLightPathNodeInfo(node, index); 
                     //TODO:
-                    // if(firstPrimOffset%3==0)
-                    // continue;
+                    if(index%LIGHTPATHLENGTH==0)
+                    continue;
                         // return vec4(vec3(0.0,0.0,1.0), 1.0);
                     // vertex connection
 
-                    vec3 connect_radiance = VertexConnect(node, eye_);
+                    // vec3 connect_radiance = vec3(0.1);
 
-                    float misWeight;
-                    float weight=1.0;
+                    float misWeight=1/(2+j+(index)%LIGHTPATHLENGTH);
+                    #ifdef OPT_RR
+                    float weight=misWeight/p_y_z;
+                    #else
+                    float weight=misWeight;
+                    #endif
 
-                    if(connect_radiance.x>0.0||connect_radiance.y>0.0||connect_radiance.z>0.0)
-                        radiance += throughput *connect_radiance ;
-                        // radiance += vec3(node.matID == 5? 5.0:0.0 , 0.0, 0.0);
-                    
-    // www;// 3342  
-                    // break; 
+                    vec3 connect_radiance = VertexConnect(node, eye_)*weight*throughput;
+
+                    if(connect_radiance.x>0.0&&connect_radiance.y>0.0&&connect_radiance.z>0.0)
+                        radiance +=  connect_radiance/12000 ;
                 }
-                radiance /= sqrt(float(primCount));
+                // radiance /= sqrt(float(primCount));
             }
             if(stackLevel == 0) break;
             
@@ -820,21 +807,21 @@ vec4 HRRVC( in Ray ray_) {
             infimum = stackElement.infimum;
             // out result 
         }
+        radiance += DirectLight(r,state,true)*throughput;
 
         if (scatterSample.pdf > 0.0)
             throughput *= scatterSample.f / scatterSample.pdf;
         else break; 
-        // break; 
 #ifdef OPT_RR
         // Russian roulette
 
-        if (j >= OPT_RR_DEPTH)
-        {
-            float q = min(max(throughput.x, max(throughput.y, throughput.z)) + 0.001, 0.95);
-            if (rand() > q)
-                break;
-            throughput /= q;
-        }
+        // if (j >= OPT_RR_DEPTH)
+        // {
+        //     float q = min(max(throughput.x, max(throughput.y, throughput.z)) + 0.001, 0.95);
+        //     if (rand() > q)
+        //         break;
+        //     throughput /= q;
+        // }
 #endif
     }
     return vec4(radiance, 1.0); 
