@@ -30,8 +30,6 @@ jobs:
         sudo apt install libxcursor-dev
         sudo apt install libxi-dev
         sudo apt-get install libglew-dev
-        sudo apt-get install libglut-dev
-        sudo apt-get install freeglut3-dev
         sudo apt install libpcl-dev
         sudo apt install libpcl-dev pcl-tools
 
