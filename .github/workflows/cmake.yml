@@ -19,6 +19,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    
+    - name: Install dependant
+      run: |
+        sudo apt update
+        sudo apt install -y flex bison gcc g++
+        sudo apt install mesa-utils
+        sudo apt-get install build-essential
+        sudo apt install libxinerama-dev
+        sudo apt install libxcursor-dev
+        sudo apt install libxi-dev
+        sudo apt-get install libglew-dev
+        sudo apt-get install libglut-dev
+        sudo apt-get install freeglut3-dev
+        sudo apt install libpcl-dev
+        sudo apt install libpcl-dev pcl-tools
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
