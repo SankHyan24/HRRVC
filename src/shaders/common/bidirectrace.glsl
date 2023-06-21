@@ -234,7 +234,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
             vec3 radianceBidirectional = vec3(0.0);
             int sampleCounter = 0;
 
-                for( int i=0; i<LIGHTPATHLENGTH; ++i ) {
+                for( int i=1; i<LIGHTPATHLENGTH; ++i ) {
                 if(lightVertices[i].avaliable == 0) break;
                 // if(if_pos_near(lightVertices[i].position, eyePos))
                 // {
@@ -275,8 +275,6 @@ vec4 sc_traceEyePath( in Ray ray_) {
                     // lightPdf = 1.0;
                     lightBRDF = vec3(1.0)*lightArea;
                 }
-                // lightPdf+=EPS;
-                // eyePdf+=EPS;
                 if(lightPdf <= 0.0 ) continue; 
                 if( eyePdf <= 0.0) continue;
                 // if(eyeBRDF.x <= 0.0 || eyeBRDF.y <= 0.0 || eyeBRDF.z <= 0.0) continue; // lp=3没问题
@@ -285,10 +283,10 @@ vec4 sc_traceEyePath( in Ray ray_) {
                 vec3 connectionRadiance = throughput * lightRadiance * eyeBRDF * lightBRDF * cosAtLight * cosAtEye *lightPdf /(eyePdf) ;
                 
 #ifdef OPT_MIS_BDPT
-                // float localWeight = eyePdf * lightPdf * cosAtEye * cosAtLight;
-                // float misWeight = PowerHeuristic(localWeight, lightSample.pdf);
+                float localWeight = eyePdf * lightPdf * cosAtEye * cosAtLight;
+                float misWeight = PowerHeuristic(localWeight, lightSample.pdf);
 #else
-                float misWeight = 1.0/(2.0+i+j);
+                float misWeight = 1.0/(2.0+i+j)/LIGHTPATHLENGTH;
 #endif
                 if(connectionRadiance.x > 0.0 && connectionRadiance.y > 0.0 && connectionRadiance.z > 0.0)
                 {
@@ -302,9 +300,7 @@ vec4 sc_traceEyePath( in Ray ray_) {
         }
 #endif
 
-#ifdef OPT_BDPT
-        // radiance += DirectLight(r,state,true)*throughput;
-#endif
+        radiance += DirectLight(r,state,true)*throughput;
 
         
         if (scatterSample.pdf > 0.0)
@@ -312,14 +308,13 @@ vec4 sc_traceEyePath( in Ray ray_) {
         else break; 
         // break;
 #ifdef OPT_RR
-        // Russian roulette
-        // if (state.depth >= OPT_RR_DEPTH)
-        // {
-        //     float q = min(max(throughput.x, max(throughput.y, throughput.z)) + 0.001, 0.95);
-        //     if (rand() > q)
-        //         break;
-        //     throughput /= q;
-        // }
+        if (state.depth >= OPT_RR_DEPTH)
+        {
+            float q = min(max(throughput.x, max(throughput.y, throughput.z)) + 0.001, 0.95);
+            if (rand() > q)
+                break;
+            throughput /= q;
+        }
 #endif
     }  
     
@@ -538,11 +533,6 @@ void fetchLightBVHnodeIndex(inout int indexout, in int index){
 vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     vec3 connectionRadiance = vec3(0.0);
     if(lightnode.avaliable == 0) return connectionRadiance;
-    // light vertex information
-
-    // if(if_pos_near(lightnode.position, eyenode.Pos)) 
-    //     return lightnode.radiance;
-    // return connectionRadiance;
     vec3 lightRadiance = lightnode.radiance;
     vec3 lightPos = lightnode.position  ;
     vec3 lightNormal = normalize(lightnode.normal);
@@ -563,7 +553,7 @@ vec3 VertexConnect(LightPathNode lightnode, EyeNode eyenode){
     float cosAtLight = dot(lightNormal, light2eyeDir);
     float cosAtEye = dot(eyeNormal, eye2lightDir);
     if(cosAtEye<0.0||cosAtLight<0.0) return connectionRadiance;
-    // if(cosAtEye*cosAtLight<EPS) return connectionRadiance;
+    if(cosAtEye*cosAtLight<EPS) return connectionRadiance;
 
     // shadow ray test
     Ray shadowRay = Ray(eyePos, eye2lightDir);
@@ -775,17 +765,13 @@ vec4 HRRVC( in Ray ray_) {
                     LightPathNode node; 
                     fetchLightBVHnodeIndex(index, firstPrimOffset + i); 
                     GetLightPathNodeInfo(node, index); 
-                    //TODO:
-                    if(index%LIGHTPATHLENGTH==0)
-                    continue;
-                        // return vec4(vec3(0.0,0.0,1.0), 1.0);
-                    // vertex connection
+                    // if(index%LIGHTPATHLENGTH==0)
+                    // continue;
 
-                    // vec3 connect_radiance = vec3(0.1);
+                    float misWeight=1.0/(2.0+j+(index)%LIGHTPATHLENGTH)/12000.0;
 
-                    float misWeight=1/(2+j+(index)%LIGHTPATHLENGTH);
                     #ifdef OPT_RR
-                    float weight=misWeight/p_y_z;
+                    float weight=misWeight/(p_y_z*sqrt(dot(scatterSample.f, scatterSample.f)));
                     #else
                     float weight=misWeight;
                     #endif
@@ -793,7 +779,7 @@ vec4 HRRVC( in Ray ray_) {
                     vec3 connect_radiance = VertexConnect(node, eye_)*weight*throughput;
 
                     if(connect_radiance.x>0.0&&connect_radiance.y>0.0&&connect_radiance.z>0.0)
-                        radiance +=  connect_radiance/12000 ;
+                        radiance +=  connect_radiance ;
                 }
                 // radiance /= sqrt(float(primCount));
             }

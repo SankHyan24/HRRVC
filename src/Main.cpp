@@ -354,6 +354,8 @@ void MainLoop(void *arg)
         if (ImGui::CollapsingHeader("Render Settings"))
         {
             reloadShaders |= ImGui::Checkbox("Use Bidirectional Path Tracing", &renderOptions.useBidirectionalPathTracing);
+            if (renderOptions.useBidirectionalPathTracing)
+                reloadShaders |= ImGui::Checkbox("Use HRRVC", &renderOptions.useHRRVC);
 
             optionsChanged |= ImGui::SliderInt("Max Spp", &renderOptions.maxSpp, -1, 256);
             optionsChanged |= ImGui::SliderInt("Max Depth", &renderOptions.maxDepth, 1, 10);
