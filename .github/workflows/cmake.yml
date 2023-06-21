@@ -33,6 +33,8 @@ jobs:
         sudo apt install libpcl-dev pcl-tools
         sudo apt-get install libasound2-dev libpulse-dev   
         sudo apt-get install libc6-dev
+        sudo apt-get install libsdl2-2.0
+        sudo apt-get install libsdl2-dev
         cp -r ${{github.workspace}}//thirdparty/oidn/oidn-1.2.4.x86_64.linux/lib ${{github.workspace}}//thirdparty/oidn/lib
         
 
